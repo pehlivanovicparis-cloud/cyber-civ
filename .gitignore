@@ -1,0 +1,4 @@
+# Runtime state — regenerated on every run, never committed.
+memory/
+__pycache__/
+*.pyc

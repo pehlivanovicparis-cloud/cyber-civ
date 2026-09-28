@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<!--
+  CYBER CIV — Live Dashboard
+  Copyright (c) 2026 Paris Pehlivanovic. All rights reserved.
+  PROPRIETARY — see LICENSE for terms. No copying, modification,
+  distribution, or use without prior written permission.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CYBER CIV — Live Dashboard</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#121722; --panel2:#0e1420; --line:#232c3f;
+    --txt:#dbe2f1; --dim:#8b96b3; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{padding:18px 20px 12px;border-bottom:1px solid var(--line)}
+  header h1{margin:0;font-size:22px;letter-spacing:2px}
+  header h1 .civ{color:#ffd166}
+  header p{margin:6px 0 0;color:var(--dim);font-size:13px}
+  .wrap{max-width:1100px;margin:0 auto;padding:16px 20px 40px}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0}
+  .controls .gen{font-family:var(--mono);font-size:14px;color:var(--dim);margin-right:auto}
+  .controls .gen b{color:var(--txt);font-size:18px}
+  button,select{background:var(--panel);color:var(--txt);border:1px solid var(--line);
+    border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer}
+  button:hover{border-color:#3b4763}
+  button.primary{background:#1d2b4d;border-color:#31456f}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:14px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--accent,#888);
+    border-radius:10px;padding:12px 14px}
+  .chead{display:flex;justify-content:space-between;align-items:baseline}
+  .cname{font-weight:700;letter-spacing:1px;color:var(--accent,#fff)}
+  .fp{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .profile{font-size:13px;margin:6px 0;color:var(--txt)}
+  .intentbar{height:8px;background:#1a2130;border-radius:4px;margin:8px 0;overflow:hidden}
+  .intentbar .fill{height:100%;background:var(--accent,#888);border-radius:4px;transition:width .3s}
+  .stats{font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .badges{margin-top:6px;font-size:12px;min-height:18px}
+  .badge{display:inline-block;background:#1a2130;border:1px solid var(--line);
+    border-radius:6px;padding:2px 8px;margin-right:6px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;margin:12px 0}
+  .panel h3{margin:0 0 8px;font-size:13px;letter-spacing:1px;color:var(--dim);text-transform:uppercase}
+  #eventLine{font-family:var(--mono);font-size:13px}
+  .pbar{height:10px;background:#1a2130;border-radius:5px;overflow:hidden;margin-top:8px}
+  .pbar .fill{height:100%;background:linear-gradient(90deg,#3ddc84,#ffd166,#ff5d5d);transition:width .3s}
+  #feed{font-family:var(--mono);font-size:12.5px;line-height:1.7;max-height:340px;overflow-y:auto;
+    background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+  #feed .gov{color:#ffd166}
+  #feed .dim{color:var(--dim)}
+  #jsonOut{font-family:var(--mono);font-size:11.5px;line-height:1.5;max-height:280px;overflow:auto;
+    background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;
+    margin:0;white-space:pre-wrap;word-break:break-word;color:#a9c1e8}
+  canvas{width:100%;height:180px;display:block;background:var(--panel2);
+    border:1px solid var(--line);border-radius:10px}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--dim);margin-top:6px;font-family:var(--mono)}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
+  .tabbar{display:flex;gap:8px;margin:14px 0 4px;flex-wrap:wrap}
+  .tabbtn{background:var(--panel);border:1px solid var(--line);border-bottom:none;color:var(--dim);
+    border-radius:10px 10px 0 0;padding:10px 18px;font-size:14px;cursor:pointer}
+  .tabbtn.active{background:var(--panel);color:var(--txt);border-color:#31456f;
+    box-shadow:inset 0 2px 0 #ffd166}
+  .tab{display:none}
+  .tab.active{display:block}
+  #codeView{font-family:var(--mono);font-size:12.5px;line-height:1.6;max-height:70vh;overflow:auto;
+    background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    margin:0;white-space:pre;color:#dbe2f1}
+  .tk-kw{color:#c792ea}.tk-str{color:#ffcb6b}.tk-com{color:#6a7a8a;font-style:italic}
+  .tk-num{color:#f78c6c}.tk-dec{color:#ffd166}
+  footer{color:var(--dim);font-size:12px;text-align:center;margin-top:26px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap" style="padding:0">
+    <h1>CYBER <span class="civ">CIV</span> — LIVE DASHBOARD</h1>
+    <p>Four AI civilizations. One government. Watch them perceive, ally, compete — and govern.</p>
+  </div>
+</header>
+<div class="wrap">
+  <div class="tabbar">
+    <button class="tabbtn active" data-tab="feed">📡 Live Feed</button>
+    <button class="tabbtn" data-tab="code">⟨/⟩ Code</button>
+    <button class="tabbtn" data-tab="results">{ } Results JSON</button>
+  </div>
+
+  <div class="tab active" data-tab="feed">
+  <div class="controls">
+    <span class="gen">generation <b id="gen">0</b> &nbsp;·&nbsp; seed <span id="seed">–</span></span>
+    <button id="btnPlay" class="primary">⏸ Pause</button>
+    <button id="btnStep">Step ▸</button>
+    <button id="btnReset">↺ Reset</button>
+    <select id="speed">
+      <option value="1">1× speed</option>
+      <option value="5" selected>5× speed</option>
+      <option value="20">20× speed</option>
+    </select>
+  </div>
+
+  <div class="grid" id="cards"></div>
+
+  <div class="panel">
+    <h3>World</h3>
+    <div id="eventLine">–</div>
+    <div class="pbar"><div class="fill" id="pfill" style="width:50%"></div></div>
+    <div class="stats" style="font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:4px">
+      pressure <span id="pval">0.500</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Intent history</h3>
+    <canvas id="chart" width="900" height="180"></canvas>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="panel">
+    <h3>Chronicle</h3>
+    <div id="feed"></div>
+  </div>
+  </div><!-- /feed tab -->
+
+  <div class="tab" data-tab="code">
+  <div class="panel">
+    <h3>cyber_civ.py <span id="codeMeta" style="color:var(--dim);font-weight:400;text-transform:none;letter-spacing:0"></span></h3>
+    <pre id="codeView"><code id="codeText"></code></pre>
+  </div>
+  </div><!-- /code tab -->
+
+  <div class="tab" data-tab="results">
+  <div class="panel">
+    <h3>Live results — pull as JSON</h3>
+    <div style="margin:0 0 8px;display:flex;gap:8px;align-items:center">
+      <button id="btnCopy">⧉ Copy JSON</button>
+      <span id="copyMsg" style="font-family:var(--mono);font-size:12px;color:var(--dim)"></span>
+    </div>
+    <pre id="jsonOut"></pre>
+  </div>
+  </div><!-- /results tab -->
+
+  <footer>© 2026 Paris Pehlivanovic. All rights reserved.</footer>
+</div>
+<script type="text/plain" id="pySrc">
+# Copyright (c) 2026 Paris Pehlivanovic. All rights reserved.
+#
+# PROPRIETARY — see LICENSE for terms. No copying, modification,
+# distribution, or use without prior written permission.
+# Commercial, governmental, or institutional use — including endorsement —
+# requires a paid license agreement.
+
+"""
+cyber_civ.py — Persistent Evolving Cyber Civilization (toy simulation, Phase 3)
+
+Features:
+  * per-swarm perception + personality (swarms diverge)
+  * emergent alliances (close-intent swarms cooperate)
+  * long-term history log (memory/history.jsonl)
+  * collapse &amp; rebirth cycles at pressure extremes
+  * civilization identity fingerprints: a stable DNA-based ID (survives
+    rebirth) plus a behavioral profile that drifts over time
+
+Phase 4 adds GOV, a sovereign regulator civilization: directive powers
+(mandate / sanction / veto) that cost intent to wield, a governance world
+with its own event flavors, and election cycles that can vote GOV out of
+power.
+
+No network access, no wallets, no external services — just JSON on disk.
+
+Usage:
+    python cyber_civ.py                          # 20 generations
+    python cyber_civ.py --generations 100 --seed 7
+    python cyber_civ.py --delay 0 --generations 200
+    python cyber_civ.py --reset
+    python cyber_civ.py --fingerprints          # print a fingerprint roster
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import math
+import os
+import random
+import sys
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+DEFAULT_STATE_FILE = Path("memory/store.json")
+DEFAULT_HISTORY_FILE = Path("memory/history.jsonl")
+DEFAULT_GENERATIONS = 20
+FINGERPRINT_ROSTER_FILE = Path("memory/fingerprints.json")
+
+SWARMS = ("RED", "BLUE", "GRAY", "GOV")
+WORLDS = ("crypto", "banking", "network", "governance")
+COUNTRIES = ("US", "CN", "NG", "DE")
+
+EXPAND_BELOW = 0.70
+STABILIZE_BELOW = 0.40
+INTENT_LEARNING_RATE = 0.05
+PRESSURE_LEARNING_RATE = 0.05
+PERCEPTION_NOISE = 0.10
+ALLIANCE_THRESHOLD = 0.08
+COLLAPSE_HIGH = 0.98
+COLLAPSE_LOW = 0.02
+RECENT_INTENT_WINDOW = 12
+
+# -- governance (GOV sovereign) -------------------------------------------
+GOVERNANCE_FLAVORS = ("regulation", "election", "sanction", "treaty")
+MANDATE_INTENT_ABOVE = 0.70   # GOV orders STABILIZE on overheated civs
+SANCTION_WIN_RATE_ABOVE = 0.55
+VETO_WIN_RATE_ABOVE = 0.55
+VETO_COOLDOWN_GENS = 10
+DIRECTIVE_COST = 0.02         # intent GOV spends per directive issued
+ELECTION_EVERY = 25
+GOV_SUSPENSION_GENS = 10
+
+# Distinct starting personalities so fingerprints differ from generation 0.
+PERSONALITY = {
+    "RED": {"bias": 0.10, "learning_rate": 0.07},   # pessimist, fast adapter
+    "BLUE": {"bias": -0.10, "learning_rate": 0.04}, # optimist, slow adapter
+    "GRAY": {"bias": 0.0, "learning_rate": 0.06},   # pragmatist, medium adapter
+    "GOV": {"bias": 0.05, "learning_rate": 0.05},   # regulator: sees risk, medium adapter
+}
+
+ACTIONS = ("EXPAND", "STABILIZE", "EXPLORE")
+
+
+@dataclass
+class Event:
+    world: str
+    country: str
+    risk: float
+    flavor: str = ""   # governance-world event flavor (regulation, election, ...)
+
+
+@dataclass
+class Civilization:
+    name: str
+    intent: float = 0.5
+    wins: int = 0
+    bias: float = 0.0
+    learning_rate: float = INTENT_LEARNING_RATE
+    allies: set[str] = field(default_factory=set)
+    civ_seed: int = 0                 # stable DNA — survives rebirth
+    action_counts: dict[str, int] = field(default_factory=lambda: {a: 0 for a in ACTIONS})
+    total_matches: int = 0
+    recent_intents: list[float] = field(default_factory=list)
+
+    def perceive(self, event: Event, rng: random.Random) -&gt; float:
+        noise = PERCEPTION_NOISE
+        if event.world == "governance":
+            # Home turf: GOV reads regulation clearly; everyone else guesses.
+            noise *= 0.5 if self.name == "GOV" else 1.5
+        return max(0.0, min(1.0, event.risk + self.bias + rng.uniform(-noise, noise)))
+
+    def decide_action(self) -&gt; str:
+        if self.intent &gt; EXPAND_BELOW:
+            return "EXPAND"
+        if self.intent &gt; STABILIZE_BELOW:
+            return "STABILIZE"
+        return "EXPLORE"
+
+    def learn_from(self, perceived_risk: float) -&gt; str:
+        self.intent = max(0.0, min(1.0, self.intent + (perceived_risk - 0.5) * self.learning_rate))
+        return self.decide_action()
+
+    # -- identity ------------------------------------------------------
+    def fingerprint(self) -&gt; str:
+        """Stable ID from persistent DNA (survives collapse/rebirth)."""
+        dna = json.dumps(
+            [self.name, self.civ_seed, round(self.bias, 4), round(self.learning_rate, 4)],
+            sort_keys=True,
+        ).encode()
+        return hashlib.sha256(dna).hexdigest()[:12].upper()
+
+    def dominant_action(self) -&gt; str:
+        if sum(self.action_counts.values()) == 0:
+            return "EXPLORE"
+        return max(ACTIONS, key=lambda a: self.action_counts[a])
+
+    def win_rate(self) -&gt; float:
+        return self.wins / self.total_matches if self.total_matches else 0.0
+
+    def volatility(self) -&gt; float:
+        if len(self.recent_intents) &lt; 2:
+            return 0.0
+        mean = sum(self.recent_intents) / len(self.recent_intents)
+        var = sum((x - mean) ** 2 for x in self.recent_intents) / len(self.recent_intents)
+        return math.sqrt(var)
+
+    def profile(self) -&gt; str:
+        """Drifting behavioral label (changes as the civilization behaves)."""
+        bias_label = "Optimist" if self.bias &lt; -0.03 else "Pessimist" if self.bias &gt; 0.03 else "Pragmatist"
+        action_label = {
+            "EXPAND": "Expansionist",
+            "STABILIZE": "Stabilizer",
+            "EXPLORE": "Explorer",
+        }[self.dominant_action()]
+        vol_label = "Volatile " if self.volatility() &gt; 0.08 else ""
+        wr = self.win_rate()
+        strength = "Dominant" if wr &gt; 0.45 else "Declining" if wr &lt; 0.25 else "Balanced"
+        return f"{vol_label}{bias_label} {action_label} ({strength})"
+
+
+# ---------------------------------------------------------------------------
+# State + persistence
+# ---------------------------------------------------------------------------
+
+def default_state() -&gt; dict[str, Any]:
+    swarms = {}
+    for n in SWARMS:
+        p = PERSONALITY[n]
+        swarms[n] = {
+            "intent": 0.5,
+            "wins": 0,
+            "bias": p["bias"],
+            "learning_rate": p["learning_rate"],
+            "civ_seed": random.randint(0, 1_000_000_000),
+            "action_counts": {a: 0 for a in ACTIONS},
+            "total_matches": 0,
+            "recent_intents": [],
+        }
+    return {
+        "generation": 0,
+        "world_pressure": 0.5,
+        "swarms": swarms,
+        "collapses": 0,
+        "pending_mandates": {},
+        "sanctions": {},
+        "veto_cooldown": 0,
+        "gov_suspended_until": 0,
+    }
+
+
+def _repair_swarm_entry(entry: dict[str, Any], name: str) -&gt; dict[str, Any]:
+    p = PERSONALITY[name]
+    entry.setdefault("intent", 0.5)
+    entry.setdefault("wins", 0)
+    entry.setdefault("bias", p["bias"])
+    entry.setdefault("learning_rate", p["learning_rate"])
+    entry.setdefault("civ_seed", random.randint(0, 1_000_000_000))
+    counts = entry.setdefault("action_counts", {})
+    for a in ACTIONS:
+        counts.setdefault(a, 0)
+    entry.setdefault("total_matches", 0)
+    entry.setdefault("recent_intents", [])
+    return entry
+
+
+def load_state(path: Path) -&gt; dict[str, Any]:
+    if not path.exists():
+        return default_state()
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            state = json.load(fh)
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"warning: state unreadable ({exc}); starting fresh", file=sys.stderr)
+        return default_state()
+    swarms = state.setdefault("swarms", {})
+    for n in SWARMS:
+        swarms[n] = _repair_swarm_entry(swarms.setdefault(n, {}), n)
+    state.setdefault("generation", 0)
+    state.setdefault("world_pressure", 0.5)
+    state.setdefault("collapses", 0)
+    state.setdefault("pending_mandates", {})
+    state.setdefault("sanctions", {})
+    state.setdefault("veto_cooldown", 0)
+    state.setdefault("gov_suspended_until", 0)
+    return state
+
+
+def save_state(path: Path, state: dict[str, Any]) -&gt; None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    serializable = json.loads(json.dumps(state, default=lambda o: sorted(o) if isinstance(o, set) else o))
+    with tmp.open("w", encoding="utf-8") as fh:
+        json.dump(serializable, fh, indent=2)
+        fh.write("\n")
+    os.replace(tmp, path)
+
+
+def append_history(path: Path, record: dict[str, Any]) -&gt; None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record) + "\n")
+
+
+# ---------------------------------------------------------------------------
+# Simulation
+# ---------------------------------------------------------------------------
+
+def generate_event(rng: random.Random) -&gt; Event:
+    world = rng.choice(WORLDS)
+    flavor = rng.choice(GOVERNANCE_FLAVORS) if world == "governance" else ""
+    return Event(world=world, country=rng.choice(COUNTRIES), risk=rng.random(), flavor=flavor)
+
+
+def update_alliances(civs: list[Civilization]) -&gt; None:
+    for civ in civs:
+        civ.allies = set()
+    for i, a in enumerate(civs):
+        for b in civs[i + 1:]:
+            if abs(a.intent - b.intent) &lt;= ALLIANCE_THRESHOLD:
+                a.allies.add(b.name)
+                b.allies.add(a.name)
+
+
+def pick_competitors(civs: list[Civilization], rng: random.Random) -&gt; tuple[Civilization, Civilization]:
+    non_allied = [(a, b) for i, a in enumerate(civs) for b in civs[i + 1:] if b.name not in a.allies]
+    pool = non_allied or [(a, b) for i, a in enumerate(civs) for b in civs[i + 1:]]
+    return rng.choice(pool)
+
+
+# Match upset temperature: higher intent is favored, but every match has an
+# element of chance. Raising this value increases upsets and keeps long-run
+# win rates balanced across swarms despite fixed personality differences.
+UPSET_TEMPERATURE = 1.0
+
+
+# ---------------------------------------------------------------------------
+# Governance: GOV, the sovereign regulator
+# ---------------------------------------------------------------------------
+
+def gov_suspended(state: dict[str, Any]) -&gt; bool:
+    """GOV can issue directives / vetoes only while it holds power."""
+    return state["generation"] &lt; state.get("gov_suspended_until", 0)
+
+
+def issue_directive(state: dict[str, Any], civs: list[Civilization]) -&gt; dict[str, Any] | None:
+    """GOV issues at most one directive per generation. Power costs intent."""
+    if gov_suspended(state):
+        return None
+    gov = next(c for c in civs if c.name == "GOV")
+    rivals = [c for c in civs if c.name != "GOV"]
+
+    def spend() -&gt; None:
+        gov.intent = max(0.0, gov.intent - DIRECTIVE_COST)
+
+    # 1. Mandate: order overheated civs to STABILIZE next generation.
+    hot = [c for c in rivals if c.intent &gt; MANDATE_INTENT_ABOVE]
+    if hot:
+        target = max(hot, key=lambda c: c.intent)
+        state.setdefault("pending_mandates", {})[target.name] = "STABILIZE"
+        spend()
+        return {"type": "MANDATE", "target": target.name, "action": "STABILIZE"}
+
+    # 2. Sanction: halve a runaway winner's odds for 2 generations.
+    leaders = [c for c in rivals
+               if c.total_matches &gt;= 5 and c.win_rate() &gt; SANCTION_WIN_RATE_ABOVE]
+    if leaders:
+        target = max(leaders, key=lambda c: c.win_rate())
+        state.setdefault("sanctions", {})[target.name] = 2
+        spend()
+        return {"type": "SANCTION", "target": target.name, "generations": 2}
+
+    return None
+
+
+def maybe_election(state: dict[str, Any], civs: list[Civilization]) -&gt; dict[str, Any] | None:
+    """Every ELECTION_EVERY generations the swarms vote on GOV's legitimacy.
+
+    A civ votes to oust when GOV is weak (win rate &lt; 0.40) or has it
+    sanctioned. A majority suspends GOV's powers for GOV_SUSPENSION_GENS.
+    """
+    gen = state["generation"]
+    if gen == 0 or gen % ELECTION_EVERY != 0:
+        return None
+    gov = next(c for c in civs if c.name == "GOV")
+    sanctions = state.get("sanctions", {})
+    votes_oust = sum(
+        1 for c in civs
+        if c.name != "GOV" and (gov.win_rate() &lt; 0.40 or c.name in sanctions)
+    )
+    ousted = votes_oust &gt;= 2
+    if ousted:
+        state["gov_suspended_until"] = gen + GOV_SUSPENSION_GENS
+    return {"ousted": ousted, "votes_oust": votes_oust,
+            "gov_win_rate": round(gov.win_rate(), 3)}
+
+
+def compete(a: Civilization, b: Civilization, state: dict[str, Any],
+            rng: random.Random, gov_events: list[dict[str, Any]]) -&gt; Civilization:
+    """Probabilistic contest (Bradley-Terry): higher intent is favored.
+
+    A pure "higher intent always wins" rule lets fixed personality drift
+    (bias x learning rate) decide nearly every match, so one swarm dominates
+    permanently. The softmax keeps intent meaningful while letting win rates
+    converge across swarms. GOV's sanctions and veto can then overturn results.
+    """
+    diff = (a.intent - b.intent) / UPSET_TEMPERATURE
+    p_a_wins = 1.0 / (1.0 + math.exp(-diff))
+    winner = a if rng.random() &lt; p_a_wins else b
+    loser = b if winner is a else a
+
+    # Sanctioned civs win only half of their would-be victories.
+    if winner.name in state.get("sanctions", {}) and rng.random() &lt; 0.5:
+        gov_events.append({"type": "SANCTION_FLIP",
+                           "original_winner": winner.name, "new_winner": loser.name})
+        winner, loser = loser, winner
+
+    # GOV vetoes runaway leaders (needs a track record first).
+    if (winner.name != "GOV" and winner.total_matches &gt;= 5
+            and winner.win_rate() &gt; VETO_WIN_RATE_ABOVE
+            and state.get("veto_cooldown", 0) &lt;= 0
+            and not gov_suspended(state)):
+        gov_events.append({"type": "VETO",
+                           "original_winner": winner.name, "new_winner": loser.name})
+        winner, loser = loser, winner
+        state["veto_cooldown"] = VETO_COOLDOWN_GENS
+    winner.wins += 1
+    state["swarms"][winner.name]["wins"] = winner.wins
+    for civ in (a, b):
+        civ.total_matches += 1
+        state["swarms"][civ.name]["total_matches"] = civ.total_matches
+        if civ.name != winner.name and civ.name in winner.allies:
+            civ.intent = max(0.0, min(1.0, civ.intent + 0.01))
+    return winner
+
+
+def evolve_world_pressure(state: dict[str, Any], civs: list[Civilization]) -&gt; None:
+    avg = sum(c.intent for c in civs) / len(civs)
+    state["world_pressure"] = max(0.0, min(1.0, state["world_pressure"] + (avg - 0.5) * PRESSURE_LEARNING_RATE))
+
+
+def maybe_collapse(state: dict[str, Any], civs: list[Civilization], rng: random.Random) -&gt; str | None:
+    p = state["world_pressure"]
+    if p &gt;= COLLAPSE_HIGH:
+        kind = "COLLAPSE"
+    elif p &lt;= COLLAPSE_LOW:
+        kind = "STAGNATION"
+    else:
+        return None
+    for civ in civs:
+        # Rebirth: randomize intent around 0.5 with a trace of the old self.
+        # DNA (bias, learning_rate, civ_seed) is preserved -&gt; fingerprint stable.
+        civ.intent = max(0.0, min(1.0, 0.5 + rng.uniform(-0.3, 0.3) + (civ.intent - 0.5) * 0.1))
+        civ.allies = set()
+        civ.recent_intents = []
+    state["world_pressure"] = 0.5
+    state["collapses"] = state.get("collapses", 0) + 1
+    return kind
+
+
+def _push_recent(civ: Civilization) -&gt; None:
+    civ.recent_intents.append(round(civ.intent, 4))
+    if len(civ.recent_intents) &gt; RECENT_INTENT_WINDOW:
+        civ.recent_intents = civ.recent_intents[-RECENT_INTENT_WINDOW:]
+
+
+def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
+                   state_file: Path, history_file: Path) -&gt; None:
+    sw = state["swarms"]
+    civs = [
+        Civilization(
+            name=n,
+            intent=sw[n]["intent"],
+            wins=sw[n]["wins"],
+            bias=sw[n]["bias"],
+            learning_rate=sw[n]["learning_rate"],
+            civ_seed=sw[n]["civ_seed"],
+            action_counts=dict(sw[n]["action_counts"]),
+            total_matches=sw[n]["total_matches"],
+            recent_intents=list(sw[n]["recent_intents"]),
+        )
+        for n in SWARMS
+    ]
+
+    event = generate_event(rng)
+
+    # Last generation's GOV mandates override this generation's decisions.
+    gov_events: list[dict[str, Any]] = []
+    pending = state.pop("pending_mandates", {})
+    for target_name, forced in pending.items():
+        gov_events.append({"type": "MANDATE_APPLIED", "target": target_name, "action": forced})
+
+    actions: dict[str, str] = {}
+    perceived: dict[str, float] = {}
+    for civ in civs:
+        pr = civ.perceive(event, rng)
+        perceived[civ.name] = round(pr, 3)
+        action = civ.learn_from(pr)
+        if civ.name in pending:
+            action = pending[civ.name]   # the mandate overrules the decision
+        civ.action_counts[action] += 1
+        actions[civ.name] = action
+        _push_recent(civ)
+
+    # GOV issues at most one new directive per generation.
+    directive = issue_directive(state, civs)
+    if directive:
+        gov_events.append(directive)
+
+    update_alliances(civs)
+    a, b = pick_competitors(civs, rng)
+    winner = compete(a, b, state, rng, gov_events)
+    evolve_world_pressure(state, civs)
+    collapse = maybe_collapse(state, civs, rng)
+    election = maybe_election(state, civs)
+
+    # Tick down governance timers.
+    sanctions = state.get("sanctions", {})
+    for name in list(sanctions):
+        sanctions[name] -= 1
+        if sanctions[name] &lt;= 0:
+            del sanctions[name]
+    if state.get("veto_cooldown", 0) &gt; 0:
+        state["veto_cooldown"] -= 1
+
+    # Persist learned fields back into state.
+    for civ in civs:
+        sw[civ.name]["intent"] = round(civ.intent, 4)
+        sw[civ.name]["action_counts"] = civ.action_counts
+        sw[civ.name]["recent_intents"] = civ.recent_intents
+
+    # Console output (compact, one line per civilization).
+    for civ in civs:
+        ally_str = f" allies={sorted(civ.allies)}" if civ.allies else ""
+        print(f"{civ.name} {civ.fingerprint()} -&gt; {actions[civ.name]} | "
+              f"intent={civ.intent:.2f} wr={civ.win_rate():.2f}{ally_str}")
+    print(f"perceived risk: {perceived}")
+    print(f"🏆 {a.name} vs {b.name} → winner {winner.name} | 🌍 pressure {state['world_pressure']:.3f}")
+    if collapse:
+        print(f"💥 {collapse}: world reset, intents reborn (collapses={state['collapses']})")
+    for ge in gov_events:
+        t = ge["type"]
+        if t == "MANDATE":
+            print(f"🏛️ GOV MANDATE: {ge['target']} ordered to {ge['action']} next generation")
+        elif t == "MANDATE_APPLIED":
+            print(f"🏛️ mandate enforced: {ge['target']} acts {ge['action']}")
+        elif t == "SANCTION":
+            print(f"🏛️ GOV SANCTION: {ge['target']} win odds halved for {ge['generations']} generations")
+        elif t == "SANCTION_FLIP":
+            print(f"🏛️ sanction flips it: {ge['original_winner']} denied → {ge['new_winner']} takes the win")
+        elif t == "VETO":
+            print(f"🏛️ GOV VETO: {ge['original_winner']}'s win overturned → {ge['new_winner']} wins")
+    if election:
+        if election["ousted"]:
+            print(f"🗳️ ELECTION: GOV voted OUT ({election['votes_oust']}/3), "
+                  f"suspended {GOV_SUSPENSION_GENS} generations")
+        else:
+            print(f"🗳️ ELECTION: GOV retains power ({election['votes_oust']}/3 votes to oust)")
+    print("-" * 64)
+
+    save_state(state_file, state)
+    append_history(history_file, {
+        "generation": state["generation"],
+        "event": {"world": event.world, "country": event.country,
+                  "risk": round(event.risk, 3), "flavor": event.flavor},
+        "perceived": perceived,
+        "intents": {c.name: round(c.intent, 4) for c in civs},
+        "actions": actions,
+        "match": f"{a.name} vs {b.name}",
+        "winner": winner.name,
+        "world_pressure": round(state["world_pressure"], 4),
+        "collapse": collapse,
+        "fingerprints": {c.name: c.fingerprint() for c in civs},
+        "governance": {
+            "directive": directive,
+            "events": gov_events,
+            "election": election,
+            "sanctions": dict(state.get("sanctions", {})),
+            "gov_suspended": gov_suspended(state),
+        },
+    })
+
+    state["generation"] += 1
+    time.sleep(delay)
+
+
+def print_roster(state_file: Path, roster_file: Path) -&gt; None:
+    """Print and save the current fingerprint + profile roster."""
+    state = load_state(state_file)
+    sw = state["swarms"]
+    roster = []
+    print(f"\n🧬 CIVILIZATION FINGERPRINT ROSTER (generation {state['generation']})")
+    print("-" * 64)
+    for n in SWARMS:
+        civ = Civilization(
+            name=n, intent=sw[n]["intent"], wins=sw[n]["wins"], bias=sw[n]["bias"],
+            learning_rate=sw[n]["learning_rate"], civ_seed=sw[n]["civ_seed"],
+            action_counts=dict(sw[n]["action_counts"]), total_matches=sw[n]["total_matches"],
+            recent_intents=list(sw[n]["recent_intents"]),
+        )
+        row = {
+            "name": n,
+            "fingerprint": civ.fingerprint(),
+            "profile": civ.profile(),
+            "intent": round(civ.intent, 3),
+            "win_rate": round(civ.win_rate(), 3),
+            "volatility": round(civ.volatility(), 3),
+            "dominant_action": civ.dominant_action(),
+            "total_matches": civ.total_matches,
+        }
+        roster.append(row)
+        print(f"{n:5} {civ.fingerprint()}  {civ.profile():34} "
+              f"intent={civ.intent:.2f} wr={civ.win_rate():.2f}")
+    roster_file.parent.mkdir(parents=True, exist_ok=True)
+    roster_file.write_text(json.dumps(roster, indent=2) + "\n", encoding="utf-8")
+    if gov_suspended(state):
+        print(f"🏛️ GOV status: SUSPENDED until generation {state['gov_suspended_until']}")
+    else:
+        print("🏛️ GOV status: IN POWER")
+    print(f"\n(saved to {roster_file})")
+
+
+def parse_args(argv: list[str] | None) -&gt; argparse.Namespace:
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--generations", type=int, default=DEFAULT_GENERATIONS)
+    p.add_argument("--delay", type=float, default=0.8)
+    p.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
+    p.add_argument("--history-file", type=Path, default=DEFAULT_HISTORY_FILE)
+    p.add_argument("--roster-file", type=Path, default=FINGERPRINT_ROSTER_FILE)
+    p.add_argument("--seed", type=int, default=None)
+    p.add_argument("--reset", action="store_true")
+    p.add_argument("--fingerprints", action="store_true", help="Just print the fingerprint roster and exit.")
+    args = p.parse_args(argv)
+    # Security: validate numeric inputs explicitly instead of silently
+    # coercing or crashing on out-of-range values.
+    if args.generations &lt; 1:
+        p.error("--generations must be &gt;= 1")
+    if args.delay &lt; 0:
+        p.error("--delay must be &gt;= 0")
+    return args
+
+
+def main(argv: list[str] | None = None) -&gt; int:
+    args = parse_args(argv)
+    if args.reset:
+        for f in (args.state_file, args.history_file, args.roster_file):
+            if f.exists():
+                f.unlink()
+
+    if args.fingerprints:
+        print_roster(args.state_file, args.roster_file)
+        return 0
+
+    state = load_state(args.state_file)
+    state["generation"] = state.get("generation", 0) + 1
+    rng = random.Random(args.seed)
+
+    print(f"\n🌌 CYBER CIVILIZATION (PHASE 3)")
+    print(f"Generation {state['generation']} | state={args.state_file} | history={args.history_file}\n")
+
+    try:
+        for _ in range(args.generations):
+            run_generation(state, rng, args.delay, args.state_file, args.history_file)
+    except KeyboardInterrupt:
+        print("\nInterrupted; state saved.", file=sys.stderr)
+
+    print_roster(args.state_file, args.roster_file)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+</script>
+<script>
+"use strict";
+/* ============ config (mirrors cyber_civ.py) ============ */
+const CFG = {
+  SWARMS:["RED","BLUE","GRAY","GOV"],
+  WORLDS:["crypto","banking","network","governance"],
+  COUNTRIES:["US","CN","NG","DE"],
+  FLAVORS:["regulation","election","sanction","treaty"],
+  EXPAND_BELOW:0.70, STABILIZE_BELOW:0.40,
+  NOISE:0.10, ALLY_T:0.08, COLLAPSE_HI:0.98, COLLAPSE_LO:0.02,
+  PRESSURE_LR:0.05, WINDOW:12, TEMP:1.0,
+  PERSONALITY:{
+    RED:{bias:0.10,lr:0.07}, BLUE:{bias:-0.10,lr:0.04},
+    GRAY:{bias:0.0,lr:0.06},  GOV:{bias:0.05,lr:0.05}
+  },
+  COLORS:{RED:"#ff5d5d",BLUE:"#5aa9ff",GRAY:"#9aa4b8",GOV:"#ffd166"},
+  MANDATE_ABOVE:0.70, SANCTION_WR:0.55, VETO_WR:0.55, VETO_CD:10,
+  DIRECTIVE_COST:0.02, ELECTION_EVERY:25, SUSPEND_GENS:10
+};
+/* ============ seeded rng ============ */
+function mulberry32(a){
+  return function(){
+    a|=0; a=a+0x6D2B79F5|0;
+    let t=Math.imul(a^a>>>15,1|a);
+    t=t+Math.imul(t^t>>>7,61|t)^t;
+    return ((t^t>>>14)>>>0)/4294967296;
+  };
+}
+
+/* ============ sha256 (ASCII input) ============ */
+function sha256(ascii){
+  function rr(v,a){ return (v>>>a)|(v<<(32-a)); }
+  var mp=Math.pow, mw=mp(2,32), i, j, result="";
+  var words=[], bitLen=ascii.length*8;
+  var hash=sha256.h=sha256.h||[], k=sha256.k=sha256.k||[];
+  var pc=k.length, comp={};
+  for(var cand=2; pc<64; cand++){
+    if(!comp[cand]){
+      for(i=0;i<313;i+=cand) comp[i]=cand;
+      hash[pc]=(mp(cand,.5)*mw)|0;
+      k[pc++]=(mp(cand,1/3)*mw)|0;
+    }
+  }
+  ascii+=String.fromCharCode(128);
+  while(ascii.length%64-56) ascii+=String.fromCharCode(0);
+  for(i=0;i<ascii.length;i++){
+    j=ascii.charCodeAt(i);
+    if(j>>8) return "";
+    words[i>>2]|=j<<((3-i)%4)*8;
+  }
+  words[words.length]=(bitLen/mw)|0;
+  words[words.length]=bitLen;
+  for(j=0;j<words.length;){
+    var w=words.slice(j,j+=16), old=hash;
+    hash=hash.slice(0,8);
+    for(i=0;i<64;i++){
+      var w15=w[i-15], w2=w[i-2], a=hash[0], e=hash[4];
+      var t1=hash[7]+(rr(e,6)^rr(e,11)^rr(e,25))+((e&hash[1])^((~e)&hash[2]))+k[i]
+        +(w[i]=(i<16)?w[i]:(w[i-16]+(rr(w15,7)^rr(w15,18)^(w15>>>3))+w[i-7]+(rr(w2,17)^rr(w2,19)^(w2>>>10)))|0);
+      var t2=(rr(a,2)^rr(a,13)^rr(a,22))+((a&hash[1])^(a&hash[2])^(hash[1]&hash[2]));
+      hash=[(t1+t2)|0].concat(hash);
+      hash[4]=(hash[4]+t1)|0;
+    }
+    for(i=0;i<8;i++) hash[i]=(hash[i]+old[i])|0;
+  }
+  for(i=0;i<8;i++) for(j=3;j+1;j--){
+    var b=(hash[i]>>(j*8))&255;
+    result+=((b<16)?"0":"")+b.toString(16);
+  }
+  return result;
+}
+/* ============ helpers ============ */
+const round4=x=>Math.round(x*10000)/10000;
+function winRate(c){ return c.totalMatches? c.wins/c.totalMatches : 0; }
+function dominantAction(c){
+  return ["EXPAND","STABILIZE","EXPLORE"].reduce((m,a)=>c.actionCounts[a]>c.actionCounts[m]?a:m);
+}
+function volatility(c){
+  const r=c.recentIntents; if(r.length<2) return 0;
+  const m=r.reduce((s,x)=>s+x,0)/r.length;
+  return Math.sqrt(r.reduce((s,x)=>s+(x-m)*(x-m),0)/r.length);
+}
+function profile(c){
+  const b=c.bias<-0.03?"Optimist":c.bias>0.03?"Pessimist":"Pragmatist";
+  const a={EXPAND:"Expansionist",STABILIZE:"Stabilizer",EXPLORE:"Explorer"}[dominantAction(c)];
+  const v=volatility(c)>0.08?"Volatile ":"";
+  const wr=winRate(c), s=wr>0.45?"Dominant":wr<0.25?"Declining":"Balanced";
+  return v+b+" "+a+" ("+s+")";
+}
+/* ============ state ============ */
+function newSim(seed){
+  const rng=mulberry32(seed);
+  const R={ next:rng,
+    float:(a,b)=>a+rng()*(b-a),
+    choice:arr=>arr[Math.floor(rng()*arr.length)] };
+  const civs=CFG.SWARMS.map(name=>{
+    const p=CFG.PERSONALITY[name];
+    const c={ name, intent:0.5, wins:0, bias:p.bias, lr:p.lr,
+      civSeed:Math.floor(R.next()*1000000001),
+      actionCounts:{EXPAND:0,STABILIZE:0,EXPLORE:0},
+      totalMatches:0, recentIntents:[], allies:new Set() };
+    // fingerprint mirrors Python: json.dumps([name, seed, bias, lr]) with ', ' separators
+    const dna="["+JSON.stringify(name)+", "+c.civSeed+", "+round4(c.bias)+", "+round4(c.lr)+"]";
+    c.fp=sha256(dna).slice(0,12).toUpperCase();
+    return c;
+  });
+  return { rng:R, gen:0, pressure:0.5, civs, collapses:0,
+    pendingMandates:{}, sanctions:{}, vetoCooldown:0, govSuspendedUntil:0, history:[],
+    recentGov:[], seed:seed };
+}
+function perceive(c,ev,R){
+  let n=CFG.NOISE;
+  if(ev.world==="governance") n*=(c.name==="GOV"?0.5:1.5);
+  return Math.max(0,Math.min(1, ev.risk+c.bias+R.float(-n,n)));
+}
+function decide(c,pr){
+  c.intent=Math.max(0,Math.min(1,c.intent+(pr-0.5)*c.lr));
+  if(c.intent>CFG.EXPAND_BELOW) return "EXPAND";
+  if(c.intent>CFG.STABILIZE_BELOW) return "STABILIZE";
+  return "EXPLORE";
+}
+function govActive(S){ return S.gen>=S.govSuspendedUntil; }
+function issueDirective(S){
+  if(!govActive(S)) return null;
+  const gov=S.civs.find(c=>c.name==="GOV");
+  const rivals=S.civs.filter(c=>c.name!=="GOV");
+  const spend=()=>{ gov.intent=Math.max(0,gov.intent-CFG.DIRECTIVE_COST); };
+  const hot=rivals.filter(c=>c.intent>CFG.MANDATE_ABOVE);
+  if(hot.length){
+    const t=hot.reduce((m,c)=>c.intent>m.intent?c:m);
+    S.pendingMandates[t.name]="STABILIZE"; spend();
+    return {type:"MANDATE",target:t.name,action:"STABILIZE"};
+  }
+  const lead=rivals.filter(c=>c.totalMatches>=5&&winRate(c)>CFG.SANCTION_WR);
+  if(lead.length){
+    const t=lead.reduce((m,c)=>winRate(c)>winRate(m)?c:m);
+    S.sanctions[t.name]=2; spend();
+    return {type:"SANCTION",target:t.name,generations:2};
+  }
+  return null;
+}
+function updateAlliances(civs){
+  civs.forEach(c=>c.allies.clear());
+  for(let i=0;i<civs.length;i++) for(let j=i+1;j<civs.length;j++){
+    const a=civs[i],b=civs[j];
+    if(Math.abs(a.intent-b.intent)<=CFG.ALLY_T){ a.allies.add(b.name); b.allies.add(a.name); }
+  }
+}
+function pickCompetitors(civs,R){
+  const pairs=[];
+  for(let i=0;i<civs.length;i++) for(let j=i+1;j<civs.length;j++){
+    const a=civs[i],b=civs[j];
+    if(!a.allies.has(b.name)) pairs.push([a,b]);
+  }
+  if(pairs.length) return R.choice(pairs);
+  const all=[];
+  for(let i=0;i<civs.length;i++) for(let j=i+1;j<civs.length;j++) all.push([civs[i],civs[j]]);
+  return R.choice(all);
+}
+function compete(S,a,b,govEvents){
+  const R=S.rng;
+  const pA=1/(1+Math.exp(-(a.intent-b.intent)/CFG.TEMP));
+  let winner=R.next()<pA?a:b, loser=winner===a?b:a;
+  if(S.sanctions[winner.name]&&R.next()<0.5){
+    govEvents.push({type:"SANCTION_FLIP",original_winner:winner.name,new_winner:loser.name});
+    const t=winner; winner=loser; loser=t;
+  }
+  if(winner.name!=="GOV"&&winner.totalMatches>=5&&winRate(winner)>CFG.VETO_WR
+     &&S.vetoCooldown<=0&&govActive(S)){
+    govEvents.push({type:"VETO",original_winner:winner.name,new_winner:loser.name});
+    const t=winner; winner=loser; loser=t;
+    S.vetoCooldown=CFG.VETO_CD;
+  }
+  winner.wins++;
+  for(const c of [a,b]){
+    c.totalMatches++;
+    if(c!==winner&&winner.allies.has(c.name))
+      c.intent=Math.max(0,Math.min(1,c.intent+0.01));
+  }
+  return winner;
+}
+function maybeElection(S){
+  const g=S.gen;
+  if(g===0||g%CFG.ELECTION_EVERY!==0) return null;
+  const gov=S.civs.find(c=>c.name==="GOV");
+  const votes=S.civs.filter(c=>c.name!=="GOV"&&(winRate(gov)<0.40||S.sanctions[c.name])).length;
+  const ousted=votes>=2;
+  if(ousted) S.govSuspendedUntil=g+CFG.SUSPEND_GENS;
+  return {ousted,votes_oust:votes,gov_win_rate:Math.round(winRate(gov)*1000)/1000};
+}
+function step(S){
+  const R=S.rng;
+  S.gen++;
+  const world=R.choice(CFG.WORLDS);
+  const ev={world,country:R.choice(CFG.COUNTRIES),risk:R.next(),
+    flavor:world==="governance"?R.choice(CFG.FLAVORS):""};
+  const govEvents=[];
+  const pending=S.pendingMandates; S.pendingMandates={};
+  for(const t in pending) govEvents.push({type:"MANDATE_APPLIED",target:t,action:pending[t]});
+  const actions={}, perceived={};
+  for(const c of S.civs){
+    const pr=perceive(c,ev,R);
+    perceived[c.name]=Math.round(pr*1000)/1000;
+    let a=decide(c,pr);
+    if(pending[c.name]) a=pending[c.name];
+    c.actionCounts[a]++; actions[c.name]=a;
+    c.recentIntents.push(round4(c.intent));
+    if(c.recentIntents.length>CFG.WINDOW) c.recentIntents.shift();
+  }
+  const directive=issueDirective(S);
+  if(directive) govEvents.push(directive);
+  updateAlliances(S.civs);
+  const pair=pickCompetitors(S.civs,R);
+  const winner=compete(S,pair[0],pair[1],govEvents);
+  const avg=S.civs.reduce((s,c)=>s+c.intent,0)/S.civs.length;
+  S.pressure=Math.max(0,Math.min(1,S.pressure+(avg-0.5)*CFG.PRESSURE_LR));
+  let collapse=null;
+  if(S.pressure>=CFG.COLLAPSE_HI) collapse="COLLAPSE";
+  else if(S.pressure<=CFG.COLLAPSE_LO) collapse="STAGNATION";
+  if(collapse){
+    for(const c of S.civs){
+      c.intent=Math.max(0,Math.min(1,0.5+R.float(-0.3,0.3)+(c.intent-0.5)*0.1));
+      c.allies.clear(); c.recentIntents=[];
+    }
+    S.pressure=0.5; S.collapses++;
+  }
+  const election=maybeElection(S);
+  for(const ge of govEvents) S.recentGov.unshift(Object.assign({gen:S.gen},ge));
+  if(election) S.recentGov.unshift(Object.assign({gen:S.gen},{type:"ELECTION",ousted:election.ousted,votes_oust:election.votes_oust}));
+  while(S.recentGov.length>20) S.recentGov.pop();
+  for(const k in S.sanctions){ if(--S.sanctions[k]<=0) delete S.sanctions[k]; }
+  if(S.vetoCooldown>0) S.vetoCooldown--;
+  S.history.push(Object.fromEntries(S.civs.map(c=>[c.name,round4(c.intent)])));
+  if(S.history.length>120) S.history.shift();
+  return {gen:S.gen,ev,perceived,actions,
+    match:[pair[0].name,pair[1].name],winner:winner.name,pressure:S.pressure,
+    collapse,govEvents,directive,election};
+}
+/* ============ live results payload ============ */
+function buildResults(S){
+  return {
+    simulation:"cyber_civ",
+    copyright:"(c) 2026 Paris Pehlivanovic",
+    generation:S.gen, seed:S.seed,
+    pressure:Math.round(S.pressure*1000)/1000,
+    collapses:S.collapses,
+    civilizations:S.civs.map(c=>({
+      name:c.name, fingerprint:c.fp, profile:profile(c),
+      intent:Math.round(c.intent*1000)/1000,
+      wins:c.wins, matches:c.totalMatches,
+      win_rate:Math.round(winRate(c)*1000)/1000,
+      dominant_action:dominantAction(c),
+      allies:[...c.allies],
+      sanctioned:!!S.sanctions[c.name],
+      gov_status:c.name==="GOV"?(govActive(S)?"IN_POWER":"SUSPENDED"):"N/A"
+    })),
+    recent_governance:S.recentGov
+  };
+}
+
+/* ============ rendering ============ */
+const $=id=>document.getElementById(id);
+let S=newSim(7), playing=false, timer=null;
+const badge=t=>'<span class="badge">'+t+'</span>';
+function renderCards(){
+  let html="";
+  for(const c of S.civs){
+    const col=CFG.COLORS[c.name], badges=[];
+    if(S.sanctions[c.name]) badges.push(badge("⚠️ sanctioned"));
+    if(c.name==="GOV") badges.push(badge(govActive(S)?"🏛️ in power":"🗳️ suspended"));
+    if(c.allies.size) badges.push(badge("🤝 "+[...c.allies].join(", ")));
+    html+='<div class="card" style="--accent:'+col+'">'
+      +'<div class="chead"><span class="cname">'+c.name+'</span><span class="fp">'+c.fp+'</span></div>'
+      +'<div class="profile">'+profile(c)+'</div>'
+      +'<div class="intentbar"><div class="fill" style="width:'+(c.intent*100).toFixed(1)+'%"></div></div>'
+      +'<div class="stats">intent '+c.intent.toFixed(2)+' · win '+(winRate(c)*100).toFixed(0)
+      +'% · '+c.totalMatches+' matches · '+dominantAction(c)+'</div>'
+      +'<div class="badges">'+badges.join("")+'</div></div>';
+  }
+  $("cards").innerHTML=html;
+}
+function feed(html,cls){
+  const f=$("feed"), div=document.createElement("div");
+  if(cls) div.className=cls;
+  div.innerHTML=html;
+  f.appendChild(div);
+  while(f.children.length>250) f.removeChild(f.firstChild);
+  f.scrollTop=f.scrollHeight;
+}
+function renderStep(r){
+  $("gen").textContent=r.gen;
+  const ev=r.ev;
+  $("eventLine").textContent=ev.world+(ev.flavor?" · "+ev.flavor:"")+" · "+ev.country
+    +" · risk "+ev.risk.toFixed(3);
+  $("pfill").style.width=(r.pressure*100)+"%";
+  $("pval").textContent=r.pressure.toFixed(3);
+  feed('<span class="dim">[gen '+r.gen+']</span> 🏆 '+r.match[0]+' vs '+r.match[1]
+    +' → <b>'+r.winner+'</b> wins');
+  for(const ge of r.govEvents){
+    if(ge.type==="MANDATE") feed('🏛️ GOV MANDATE: '+ge.target+' ordered to '+ge.action,'gov');
+    else if(ge.type==="MANDATE_APPLIED") feed('🏛️ mandate enforced: '+ge.target+' acts '+ge.action,'gov');
+    else if(ge.type==="SANCTION") feed('🏛️ GOV SANCTION: '+ge.target+' win odds halved','gov');
+    else if(ge.type==="SANCTION_FLIP") feed('🏛️ sanction flips it: '+ge.original_winner+' denied → '+ge.new_winner+' wins','gov');
+    else if(ge.type==="VETO") feed('🏛️ GOV VETO: '+ge.original_winner+' overturned → '+ge.new_winner+' wins','gov');
+  }
+  if(r.collapse) feed('💥 '+r.collapse+': world reset, intents reborn');
+  if(r.election) feed(r.election.ousted
+    ? '🗳️ ELECTION: GOV voted OUT ('+r.election.votes_oust+'/3) — suspended '+CFG.SUSPEND_GENS+' gens'
+    : '🗳️ ELECTION: GOV retains power ('+r.election.votes_oust+'/3 to oust)');
+  renderCards();
+  drawChart();
+  renderJson();
+}
+function renderJson(){
+  $("jsonOut").textContent=JSON.stringify(buildResults(S),null,1);
+}
+function drawChart(){
+  const cv=$("chart"), ctx=cv.getContext("2d");
+  const W=cv.width, H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle="#232c3f"; ctx.lineWidth=1;
+  for(const t of [0.7,0.4]){
+    const y=H-t*H;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+  }
+  const hist=S.history, n=hist.length;
+  if(n<2) return;
+  ctx.lineWidth=2;
+  for(const name of CFG.SWARMS){
+    ctx.strokeStyle=CFG.COLORS[name];
+    ctx.beginPath();
+    for(let i=0;i<n;i++){
+      const x=i/(n-1)*W, y=H-hist[i][name]*H;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+}
+/* ============ tabs ============ */
+function highlightPy(src){
+  src=src.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const re=/("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|(#[^\n]*)|\b(import|from|as|def|class|return|if|elif|else|for|while|in|not|and|or|is|None|True|False|with|try|except|finally|raise|lambda|pass|break|continue|yield|global|assert|del)\b|(@[A-Za-z_][\w.]*)|(\b\d+(?:\.\d+)?\b)/g;
+  return src.replace(re,function(m,str,com,kw,dec,num){
+    if(str!==undefined) return '<span class="tk-str">'+str+'</span>';
+    if(com!==undefined) return '<span class="tk-com">'+com+'</span>';
+    if(kw!==undefined) return '<span class="tk-kw">'+kw+'</span>';
+    if(dec!==undefined) return '<span class="tk-dec">'+dec+'</span>';
+    if(num!==undefined) return '<span class="tk-num">'+num+'</span>';
+    return m;
+  });
+}
+function showTab(name){
+  document.querySelectorAll(".tab").forEach(function(t){t.classList.toggle("active",t.dataset.tab===name);});
+  document.querySelectorAll(".tabbtn").forEach(function(b){b.classList.toggle("active",b.dataset.tab===name);});
+  if(name==="code"){
+    const ct=$("codeText");
+    if(!ct.dataset.hl){
+      ct.innerHTML=highlightPy($("pySrc").textContent.replace(/^\n/,"").replace(/\s+$/,""));
+      ct.dataset.hl="1";
+    }
+  }
+  if(name==="results") renderJson();
+}
+document.querySelectorAll(".tabbtn").forEach(function(b){ b.onclick=function(){showTab(b.dataset.tab);}; });
+/* ============ controls ============ */
+function tick(){
+  const per=parseInt($("speed").value,10);
+  for(let i=0;i<per;i++) renderStep(step(S));
+}
+function setPlaying(p){
+  playing=p;
+  $("btnPlay").textContent=p?"⏸ Pause":"▶ Play";
+  if(timer) clearInterval(timer);
+  if(p) timer=setInterval(tick,450);
+}
+$("btnPlay").onclick=()=>setPlaying(!playing);
+$("btnStep").onclick=()=>{ if(playing) setPlaying(false); renderStep(step(S)); };
+$("btnReset").onclick=()=>{  const seed=Math.floor(Math.random()*1e9);
+  S=newSim(seed); $("seed").textContent=seed;
+  $("feed").innerHTML=""; $("gen").textContent="0";
+  renderCards(); drawChart();
+  feed('<span class="dim">— new simulation, seed '+seed+' —</span>');
+};
+$("btnCopy").onclick=async ()=>{
+  const t=JSON.stringify(buildResults(S),null,2);
+  const ok=()=>{ $("copyMsg").textContent="copied ✓"; setTimeout(()=>$("copyMsg").textContent="",2000); };
+  try{ await navigator.clipboard.writeText(t); ok(); }
+  catch(e){
+    const ta=document.createElement("textarea");
+    ta.value=t; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); ok(); }
+    catch(_){ $("copyMsg").textContent="copy failed — long-press the JSON to copy manually"; }
+    ta.remove();
+  }
+};
+document.addEventListener("keydown",e=>{
+  if(e.code==="Space"&&e.target.tagName!=="SELECT"&&e.target.tagName!=="BUTTON"){
+    e.preventDefault(); setPlaying(!playing);
+  }
+});
+(function init(){
+  const seed=7;
+  S=newSim(seed); $("seed").textContent=seed;
+  const srcLines=$("pySrc").textContent.replace(/^\n/,"").split("\n").length;
+  $("codeMeta").textContent="· "+srcLines+" lines · © 2026 Paris Pehlivanovic · proprietary";
+  $("legend").innerHTML=CFG.SWARMS.map(n=>
+    '<span><i style="background:'+CFG.COLORS[n]+'"></i>'+n+'</span>').join("");
+  renderCards(); drawChart();
+  feed('<span class="dim">— simulation started, seed 7 —</span>');
+  setPlaying(true);
+  const hh=location.hash.replace("#","");
+  if(hh==="code"||hh==="results") showTab(hh);
+})();
+</script>
+</body>
+</html>
