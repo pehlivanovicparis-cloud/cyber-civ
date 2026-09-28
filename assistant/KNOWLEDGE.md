@@ -45,7 +45,7 @@ voted out of power.
 | Election | Every 25 generations the civs vote; majority ousts Archon for 10 generations | automatic |
 
 ## Verified balance (40 runs × 30 generations, 0 failures)
-Ares 52.5% · Archon 51.4% · Pax 47.7% · Vex 47.4%. No civ dominates.
+Ares 50.9% · Archon 53.4% · Pax 47.7% · Vex 47.6%. No civ dominates.
 
 ## AI building blocks (the human-body analogy)
 - **LLM = the brain.** Understands and generates language, recognizes
@@ -61,6 +61,23 @@ Ares 52.5% · Archon 51.4% · Pax 47.7% · Vex 47.4%. No civ dominates.
 - The blocks compose into one system. **CYBER CIV's civilizations are
   LLM-driven AI agents**: every generation, each civ perceives the world
   event (brain), decides, and acts (hands) — while Archon governs them.
+
+## Agent upgrades (memory, tools, hands)
+- **Memory (RAG-lite).** Each civ keeps a journal of past generations —
+  event, perceived risk, action, outcome. Before deciding, it recalls its
+  most relevant memories: same-type worlds, painful losses, sanctions.
+  Civs develop grudges and learn from mistakes.
+- **Tools (MCP-shaped).** With `--tools`, a civ can call read-only tools
+  mid-decision — standings, a rival's record, recent world events, its own
+  history — then decide with the results in hand. The tool registry is a
+  plain schema map, so a real MCP server can replace it later.
+- **Hands.** Beyond EXPAND/STABILIZE/EXPLORE, civs can **SPY** (learn a
+  rival's exact intent), **EMBARGO** (drain a rival's intent, not on
+  allies), or call a **SUMMIT** (lift every civ slightly). Each has an
+  intent cost and a cooldown; the core validates every proposal and
+  rejects illegal ones, falling back to STABILIZE.
+- Scripted civs use hands sparingly via a small heuristic; balance was
+  re-verified after the change (see above).
 
 ## Running it
 - Stdlib-only Python, no dependencies: `python3 cyber_civ.py`

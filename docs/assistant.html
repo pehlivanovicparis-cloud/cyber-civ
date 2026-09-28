@@ -103,9 +103,11 @@ GENERATION CYCLE: 1 Event (crypto/banking/network/governance world). 2 Perceptio
 
 GOVERNANCE: Mandate (overheated civ must STABILIZE, 0.02 intent); Sanction (halve runaway winner odds 2 gens, 0.02 intent); Veto (overturn runaway win, 10-gen cooldown); Election (every 25 gens, majority ousts Archon for 10 gens).
 
-VERIFIED: 40 runs x 30 generations, 0 failures. Win rates: Ares 52.5%, Archon 51.4%, Pax 47.7%, Vex 47.4%.
+VERIFIED: 40 runs x 30 generations, 0 failures. Win rates: Ares 50.9%, Archon 53.4%, Pax 47.7%, Vex 47.6%.
 
 AI BUILDING BLOCKS (human-body analogy): LLM = the brain (understands/generates language, reasons; core intelligence). RAG = brain + books (retrieves docs/databases/search as context, answers from trusted knowledge). MCP = the standard connector (one protocol linking AI apps to tools/APIs/databases/files). AI Agent = brain + hands (decides steps, uses tools and workflows, acts not just answers). The blocks compose: CYBER CIV's civilizations are LLM-driven AI agents — each civ perceives, decides, and acts every generation, under Archon's governance.
+
+AGENT UPGRADES: Memory (RAG-lite) — each civ keeps a journal of past generations and recalls the most relevant ones (same-type worlds, painful losses, sanctions) before deciding; civs develop grudges and learn from mistakes. Tools (MCP-shaped) — with --tools a civ can call read-only tools mid-decision (standings, rival_record, recent_events, my_history), then decide with results in hand. Hands — beyond EXPAND/STABILIZE/EXPLORE, civs can SPY (learn a rival's exact intent), EMBARGO (drain a rival's intent, never on allies), or call a SUMMIT (lift every civ slightly); each costs intent and has a cooldown, and the core validates every proposal.
 
 RUN IT: python3 cyber_civ.py (stdlib only). Reproducible: python3 cyber_civ.py --generations 100 --seed 7. LLM mode: python3 cyber_civ_llm.py --generations 20 (needs CYBER_CIV_API_KEY, any OpenAI-compatible endpoint). Live dashboard: https://pehlivanovicparis-cloud.github.io/cyber-civ/demo.html
 

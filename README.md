@@ -11,8 +11,8 @@ Copyright (c) 2026 Paris Pehlivanovic. All rights reserved. See [LICENSE](LICENS
 
 ## What is this?
 
-Three digital civilizations — RED (pessimist), BLUE (optimist), GRAY (pragmatist) —
-plus GOV, a sovereign regulator that governs them. Every generation they perceive
+Three digital civilizations — Ares (pessimist), Pax (optimist), Vex (pragmatist) —
+plus Archon, a sovereign regulator that governs them. Every generation they perceive
 risk events, update their intent, choose actions (EXPAND / STABILIZE / EXPLORE),
 ally with the like-minded, and face off in probabilistic competition.
 
@@ -31,29 +31,29 @@ is appended to an immutable history log.
 
 | Civ | Personality | Bias | Learning rate |
 |-----|-------------|------|---------------|
-| RED | Pessimist, fast adapter | +0.10 | 0.07 |
-| BLUE | Optimist, slow adapter | −0.10 | 0.04 |
-| GRAY | Pragmatist, medium adapter | 0.00 | 0.06 |
-| GOV | Regulator: sees risk everywhere | +0.05 | 0.05 |
+| Ares | Pessimist, fast adapter | +0.10 | 0.07 |
+| Pax | Optimist, slow adapter | −0.10 | 0.04 |
+| Vex | Pragmatist, medium adapter | 0.00 | 0.06 |
+| Archon | Regulator: sees risk everywhere | +0.05 | 0.05 |
 
 ## How a generation works
 
 1. **Event** — a risk scenario is drawn from the crypto, banking, network, or
    governance worlds, across the US, China, Nigeria, or Germany.
 2. **Perception** — each civ perceives the risk through its own bias plus noise.
-   GOV reads governance-world events clearly; everyone else guesses.
+   Archon reads governance-world events clearly; everyone else guesses.
 3. **Decision** — intent updates from perceived risk; the civ acts: EXPAND
    (intent > 0.70), STABILIZE (> 0.40), or EXPLORE.
-4. **Governance** — GOV may issue one directive (mandate / sanction), each
+4. **Governance** — Archon may issue one directive (mandate / sanction), each
    costing it intent. Pending mandates override this generation's decisions.
 5. **Alliances** — civs with near-identical intent ally and refuse to fight
    each other.
 6. **Competition** — two non-allied civs face off. Higher intent is favored
-   (Bradley-Terry), but upsets happen. Sanctions halve a target's odds; GOV
+   (Bradley-Terry), but upsets happen. Sanctions halve a target's odds; Archon
    can veto a runaway leader's win.
 7. **World update** — global pressure drifts with average intent; extremes
    trigger collapse and rebirth. Every 25 generations, an election is held:
-   the swarms can vote GOV out of power for 10 generations.
+   the swarms can vote Archon out of power for 10 generations.
 
 ## Governance powers
 
@@ -62,7 +62,7 @@ is appended to an immutable history log.
 | Mandate | Order an overheated civ (intent > 0.70) to STABILIZE next generation | 0.02 intent |
 | Sanction | Halve a runaway winner's (win rate > 0.55) odds for 2 generations | 0.02 intent |
 | Veto | Overturn a runaway leader's match win | 10-generation cooldown |
-| Election | Swarms vote every 25 generations; majority ousts GOV for 10 generations | automatic |
+| Election | Swarms vote every 25 generations; majority ousts Archon for 10 generations | automatic |
 
 ## Verified balance
 
@@ -70,10 +70,10 @@ is appended to an immutable history log.
 
 | Civ | Win rate |
 |-----|----------|
-| RED | 52.5% |
-| GOV | 51.4% |
-| BLUE | 47.7% |
-| GRAY | 47.4% |
+| Ares | 50.9% |
+| Archon | 53.4% |
+| Pax | 47.7% |
+| Vex | 47.6% |
 
 No civ dominates; every match is contestable. Personalities stay distinct —
 parity comes from the contest design, not from flattening the characters.
@@ -111,17 +111,17 @@ stalls. See `assistant/` for CIV-GUIDE, the project's AI assistant
 Example output:
 
 ```
-🏛️ GOV SANCTION: RED win odds halved for 2 generations
-🏆 RED vs BLUE → winner BLUE | 🌍 pressure 0.512
-🏛️ GOV VETO: RED's win overturned → BLUE wins
-🗳️ ELECTION: GOV voted OUT (3/3), suspended 10 generations
+🏛️ Archon SANCTION: Ares win odds halved for 2 generations
+🏆 Ares vs Pax → winner Pax | 🌍 pressure 0.512
+🏛️ Archon VETO: Ares's win overturned → Pax wins
+🗳️ ELECTION: Archon voted OUT (3/3), suspended 10 generations
 
 🧬 CIVILIZATION FINGERPRINT ROSTER (generation 30)
-RED   7B5FEA3A327B  Pessimist Stabilizer (Balanced)   intent=0.62 wr=0.52
-BLUE  3A992A32797C  Optimist Stabilizer (Balanced)    intent=0.51 wr=0.48
-GRAY  BCBE2B399F26  Pragmatist Stabilizer (Balanced)  intent=0.57 wr=0.47
-GOV   B644F5AB7AED  Pessimist Stabilizer (Balanced)   intent=0.55 wr=0.51
-🏛️ GOV status: IN POWER
+Ares   7B5FEA3A327B  Pessimist Stabilizer (Balanced)   intent=0.62 wr=0.52
+Pax  3A992A32797C  Optimist Stabilizer (Balanced)    intent=0.51 wr=0.48
+Vex  BCBE2B399F26  Pragmatist Stabilizer (Balanced)  intent=0.57 wr=0.47
+Archon   B644F5AB7AED  Pessimist Stabilizer (Balanced)   intent=0.55 wr=0.51
+🏛️ Archon status: IN POWER
 ```
 
 ## Project structure

@@ -16,9 +16,9 @@ Features:
   * civilization identity fingerprints: a stable DNA-based ID (survives
     rebirth) plus a behavioral profile that drifts over time
 
-Phase 4 adds GOV, a sovereign regulator civilization: directive powers
+Phase 4 adds Archon, a sovereign regulator civilization: directive powers
 (mandate / sanction / veto) that cost intent to wield, a governance world
-with its own event flavors, and election cycles that can vote GOV out of
+with its own event flavors, and election cycles that can vote Archon out of
 power.
 
 No network access, no wallets, no external services — just JSON on disk.
@@ -50,7 +50,7 @@ DEFAULT_HISTORY_FILE = Path("memory/history.jsonl")
 DEFAULT_GENERATIONS = 20
 FINGERPRINT_ROSTER_FILE = Path("memory/fingerprints.json")
 
-SWARMS = ("RED", "BLUE", "GRAY", "GOV")
+SWARMS = ("Ares", "Pax", "Vex", "Archon")
 WORLDS = ("crypto", "banking", "network", "governance")
 COUNTRIES = ("US", "CN", "NG", "DE")
 
@@ -64,25 +64,43 @@ COLLAPSE_HIGH = 0.98
 COLLAPSE_LOW = 0.02
 RECENT_INTENT_WINDOW = 12
 
-# -- governance (GOV sovereign) -------------------------------------------
+# -- governance (Archon sovereign) -------------------------------------------
 GOVERNANCE_FLAVORS = ("regulation", "election", "sanction", "treaty")
-MANDATE_INTENT_ABOVE = 0.70   # GOV orders STABILIZE on overheated civs
+MANDATE_INTENT_ABOVE = 0.70   # Archon orders STABILIZE on overheated civs
 SANCTION_WIN_RATE_ABOVE = 0.55
 VETO_WIN_RATE_ABOVE = 0.55
 VETO_COOLDOWN_GENS = 10
-DIRECTIVE_COST = 0.02         # intent GOV spends per directive issued
+DIRECTIVE_COST = 0.02         # intent Archon spends per directive issued
 ELECTION_EVERY = 25
 GOV_SUSPENSION_GENS = 10
 
 # Distinct starting personalities so fingerprints differ from generation 0.
 PERSONALITY = {
-    "RED": {"bias": 0.10, "learning_rate": 0.07},   # pessimist, fast adapter
-    "BLUE": {"bias": -0.10, "learning_rate": 0.04}, # optimist, slow adapter
-    "GRAY": {"bias": 0.0, "learning_rate": 0.06},   # pragmatist, medium adapter
-    "GOV": {"bias": 0.05, "learning_rate": 0.05},   # regulator: sees risk, medium adapter
+    "Ares": {"bias": 0.10, "learning_rate": 0.07},   # pessimist, fast adapter
+    "Pax": {"bias": -0.10, "learning_rate": 0.04}, # optimist, slow adapter
+    "Vex": {"bias": 0.0, "learning_rate": 0.06},   # pragmatist, medium adapter
+    "Archon": {"bias": 0.05, "learning_rate": 0.05},   # regulator: sees risk, medium adapter
 }
 
-ACTIONS = ("EXPAND", "STABILIZE", "EXPLORE")
+ACTIONS = ("EXPAND", "STABILIZE", "EXPLORE", "SPY", "EMBARGO", "SUMMIT")
+BASIC_ACTIONS = ("EXPAND", "STABILIZE", "EXPLORE")
+ADVANCED_ACTIONS = ("SPY", "EMBARGO", "SUMMIT")  # "hands": act on the world
+
+# Hands mechanics: cost is intent spent by the actor; cooldowns in generations.
+ACTION_COOLDOWNS = {"SPY": 3, "EMBARGO": 5, "SUMMIT": 4}
+SPY_COST = 0.01
+SPY_INTEL_GAIN = 0.015   # small edge from knowing the target's intent
+SPY_INTEL_GENS = 3       # how long the intel stays fresh
+EMBARGO_COST = 0.02
+EMBARGO_DAMAGE = 0.05    # intent stripped from the target
+SUMMIT_COST = 0.01
+SUMMIT_BOOST = 0.01      # every civilization gains this much intent
+
+# Scripted-heuristic usage rates (per generation, per civ). Kept low so the
+# verified balance stays close to the all-basic baseline.
+SCRIPTED_SPY_P = 0.06
+SCRIPTED_EMBARGO_P = 0.05
+SCRIPTED_SUMMIT_P = 0.04
 
 
 @dataclass
@@ -109,8 +127,8 @@ class Civilization:
     def perceive(self, event: Event, rng: random.Random) -> float:
         noise = PERCEPTION_NOISE
         if event.world == "governance":
-            # Home turf: GOV reads regulation clearly; everyone else guesses.
-            noise *= 0.5 if self.name == "GOV" else 1.5
+            # Home turf: Archon reads regulation clearly; everyone else guesses.
+            noise *= 0.5 if self.name == "Archon" else 1.5
         return max(0.0, min(1.0, event.risk + self.bias + rng.uniform(-noise, noise)))
 
     def decide_action(self) -> str:
@@ -155,6 +173,9 @@ class Civilization:
             "EXPAND": "Expansionist",
             "STABILIZE": "Stabilizer",
             "EXPLORE": "Explorer",
+            "SPY": "Infiltrator",
+            "EMBARGO": "Coercer",
+            "SUMMIT": "Diplomat",
         }[self.dominant_action()]
         vol_label = "Volatile " if self.volatility() > 0.08 else ""
         wr = self.win_rate()
@@ -179,6 +200,7 @@ def default_state() -> dict[str, Any]:
             "action_counts": {a: 0 for a in ACTIONS},
             "total_matches": 0,
             "recent_intents": [],
+            "allies": [],
         }
     return {
         "generation": 0,
@@ -189,6 +211,8 @@ def default_state() -> dict[str, Any]:
         "sanctions": {},
         "veto_cooldown": 0,
         "gov_suspended_until": 0,
+        "intel": {},                                    # spy -> {target: {intent, until}}
+        "action_cooldowns": {n: {} for n in SWARMS},    # name -> {action: gens left}
     }
 
 
@@ -204,6 +228,7 @@ def _repair_swarm_entry(entry: dict[str, Any], name: str) -> dict[str, Any]:
         counts.setdefault(a, 0)
     entry.setdefault("total_matches", 0)
     entry.setdefault("recent_intents", [])
+    entry.setdefault("allies", [])
     return entry
 
 
@@ -226,6 +251,8 @@ def load_state(path: Path) -> dict[str, Any]:
     state.setdefault("sanctions", {})
     state.setdefault("veto_cooldown", 0)
     state.setdefault("gov_suspended_until", 0)
+    state.setdefault("intel", {})
+    state.setdefault("action_cooldowns", {n: {} for n in SWARMS})
     return state
 
 
@@ -271,6 +298,155 @@ def pick_competitors(civs: list[Civilization], rng: random.Random) -> tuple[Civi
     return rng.choice(pool)
 
 
+# ---------------------------------------------------------------------------
+# Hands: advanced actions (SPY / EMBARGO / SUMMIT)
+# ---------------------------------------------------------------------------
+
+def _cooldowns(state: dict[str, Any]) -> dict[str, dict[str, int]]:
+    return state.setdefault("action_cooldowns", {})
+
+
+def cooldown_ready(state: dict[str, Any], name: str, action: str) -> bool:
+    return _cooldowns(state).get(name, {}).get(action, 0) <= 0
+
+
+def set_cooldown(state: dict[str, Any], name: str, action: str) -> None:
+    _cooldowns(state).setdefault(name, {})[action] = ACTION_COOLDOWNS[action]
+
+
+def tick_cooldowns(state: dict[str, Any]) -> None:
+    for cds in _cooldowns(state).values():
+        for a in list(cds):
+            cds[a] -= 1
+            if cds[a] <= 0:
+                del cds[a]
+
+
+def normalize_target(target: str | None, civs: list[Civilization], actor: str) -> str | None:
+    """Match a target name case-insensitively; None if invalid or self."""
+    if not target:
+        return None
+    want = str(target).strip().upper()
+    for c in civs:
+        if c.name.upper() == want and c.name != actor:
+            return c.name
+    return None
+
+
+def choose_scripted_advanced_action(civ: Civilization, civs: list[Civilization],
+                                    state: dict[str, Any],
+                                    rng: random.Random) -> tuple[str | None, str | None]:
+    """Small chance a scripted civilization uses its hands.
+
+    Returns (action, target) or (None, None). Kept deliberately rare so the
+    long-run balance stays near the verified all-basic baseline.
+    """
+    rivals = [c for c in civs if c.name != civ.name and c.name not in civ.allies]
+    if not rivals:
+        return None, None
+    r = rng.random()
+    if r < SCRIPTED_EMBARGO_P and cooldown_ready(state, civ.name, "EMBARGO"):
+        prey = max(rivals, key=lambda c: c.intent)
+        if prey.intent > civ.intent + 0.15:
+            return "EMBARGO", prey.name
+    if r < SCRIPTED_EMBARGO_P + SCRIPTED_SPY_P and cooldown_ready(state, civ.name, "SPY"):
+        leader = max(rivals, key=lambda c: c.win_rate())
+        return "SPY", leader.name
+    if (r < SCRIPTED_EMBARGO_P + SCRIPTED_SPY_P + SCRIPTED_SUMMIT_P
+            and cooldown_ready(state, civ.name, "SUMMIT")):
+        return "SUMMIT", None
+    return None, None
+
+
+def resolve_advanced_action(state: dict[str, Any], civs: list[Civilization],
+                            name: str, action: str, target: str | None,
+                            events: list[dict[str, Any]]) -> bool:
+    """Apply one hands-action. Returns True if it took effect.
+
+    Validation failures are recorded in events and the caller falls back to
+    STABILIZE, so the simulation never stalls on a bad proposal.
+    """
+    by_name = {c.name: c for c in civs}
+    civ = by_name[name]
+    ok, detail = True, ""
+    if not cooldown_ready(state, name, action):
+        ok, detail = False, "on cooldown"
+    elif action == "SPY":
+        t = by_name.get(target or "")
+        if t is None or target in civ.allies:
+            ok, detail = False, f"bad target {target}"
+        else:
+            civ.intent = max(0.0, min(1.0, civ.intent - SPY_COST + SPY_INTEL_GAIN))
+            state.setdefault("intel", {}).setdefault(name, {})[target] = {
+                "intent": round(t.intent, 3),
+                "until": state["generation"] + SPY_INTEL_GENS,
+            }
+            set_cooldown(state, name, "SPY")
+            detail = f"learns {target} intent={t.intent:.2f}"
+    elif action == "EMBARGO":
+        t = by_name.get(target or "")
+        if t is None or target in civ.allies:
+            ok, detail = False, f"bad target {target}"
+        else:
+            civ.intent = max(0.0, civ.intent - EMBARGO_COST)
+            t.intent = max(0.0, t.intent - EMBARGO_DAMAGE)
+            set_cooldown(state, name, "EMBARGO")
+            detail = f"{target} -{EMBARGO_DAMAGE:.2f} intent"
+    elif action == "SUMMIT":
+        civ.intent = max(0.0, civ.intent - SUMMIT_COST)
+        for c in civs:
+            c.intent = min(1.0, c.intent + SUMMIT_BOOST)
+        set_cooldown(state, name, "SUMMIT")
+        detail = f"all +{SUMMIT_BOOST:.2f} intent"
+    else:
+        ok, detail = False, f"unknown action {action}"
+    events.append({"type": "ADVANCED_ACTION", "actor": name, "action": action,
+                   "target": target, "ok": ok, "detail": detail})
+    return ok
+
+
+def append_civ_memories(memory_dir: Path, state: dict[str, Any],
+                        civs: list[Civilization], event: Event,
+                        perceived: dict[str, float], actions: dict[str, str],
+                        targets: dict[str, str | None], winner: Civilization,
+                        match_names: set[str], sanctioned_now: set[str],
+                        mandated: set[str]) -> None:
+    """Phase A (RAG-lite): append one memory record per civilization.
+
+    Retrieval lives in the LLM driver; the core just records faithfully.
+    Files are capped at 500 entries to bound disk and prompt size.
+    """
+    gen = state["generation"]
+    for civ in civs:
+        rec = {
+            "generation": gen,
+            "world": event.world,
+            "country": event.country,
+            "flavor": event.flavor,
+            "event_risk": round(event.risk, 3),
+            "perceived_risk": perceived[civ.name],
+            "action": actions[civ.name],
+            "target": targets.get(civ.name),
+            "intent_after": round(civ.intent, 4),
+            "in_match": civ.name in match_names,
+            "won": (winner.name == civ.name) if civ.name in match_names else None,
+            "sanctioned": civ.name in sanctioned_now,
+            "mandated": civ.name in mandated,
+            "allies": sorted(civ.allies),
+            "mode": (getattr(civ, "mode_tag", "") or "").strip() or "scripted",
+            "reason": getattr(civ, "_llm_reason", ""),
+        }
+        path = memory_dir / f"{civ.name}.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec) + "\n")
+        # Prune occasionally so files stay small.
+        if gen % 25 == 0:
+            lines = path.read_text(encoding="utf-8").splitlines()
+            if len(lines) > 500:
+                path.write_text("\n".join(lines[-500:]) + "\n", encoding="utf-8")
+
+
 # Match upset temperature: higher intent is favored, but every match has an
 # element of chance. Raising this value increases upsets and keeps long-run
 # win rates balanced across swarms despite fixed personality differences.
@@ -278,20 +454,20 @@ UPSET_TEMPERATURE = 1.0
 
 
 # ---------------------------------------------------------------------------
-# Governance: GOV, the sovereign regulator
+# Governance: Archon, the sovereign regulator
 # ---------------------------------------------------------------------------
 
 def gov_suspended(state: dict[str, Any]) -> bool:
-    """GOV can issue directives / vetoes only while it holds power."""
+    """Archon can issue directives / vetoes only while it holds power."""
     return state["generation"] < state.get("gov_suspended_until", 0)
 
 
 def issue_directive(state: dict[str, Any], civs: list[Civilization]) -> dict[str, Any] | None:
-    """GOV issues at most one directive per generation. Power costs intent."""
+    """Archon issues at most one directive per generation. Power costs intent."""
     if gov_suspended(state):
         return None
-    gov = next(c for c in civs if c.name == "GOV")
-    rivals = [c for c in civs if c.name != "GOV"]
+    gov = next(c for c in civs if c.name == "Archon")
+    rivals = [c for c in civs if c.name != "Archon"]
 
     def spend() -> None:
         gov.intent = max(0.0, gov.intent - DIRECTIVE_COST)
@@ -317,19 +493,19 @@ def issue_directive(state: dict[str, Any], civs: list[Civilization]) -> dict[str
 
 
 def maybe_election(state: dict[str, Any], civs: list[Civilization]) -> dict[str, Any] | None:
-    """Every ELECTION_EVERY generations the swarms vote on GOV's legitimacy.
+    """Every ELECTION_EVERY generations the swarms vote on Archon's legitimacy.
 
-    A civ votes to oust when GOV is weak (win rate < 0.40) or has it
-    sanctioned. A majority suspends GOV's powers for GOV_SUSPENSION_GENS.
+    A civ votes to oust when Archon is weak (win rate < 0.40) or has it
+    sanctioned. A majority suspends Archon's powers for GOV_SUSPENSION_GENS.
     """
     gen = state["generation"]
     if gen == 0 or gen % ELECTION_EVERY != 0:
         return None
-    gov = next(c for c in civs if c.name == "GOV")
+    gov = next(c for c in civs if c.name == "Archon")
     sanctions = state.get("sanctions", {})
     votes_oust = sum(
         1 for c in civs
-        if c.name != "GOV" and (gov.win_rate() < 0.40 or c.name in sanctions)
+        if c.name != "Archon" and (gov.win_rate() < 0.40 or c.name in sanctions)
     )
     ousted = votes_oust >= 2
     if ousted:
@@ -345,7 +521,7 @@ def compete(a: Civilization, b: Civilization, state: dict[str, Any],
     A pure "higher intent always wins" rule lets fixed personality drift
     (bias x learning rate) decide nearly every match, so one swarm dominates
     permanently. The softmax keeps intent meaningful while letting win rates
-    converge across swarms. GOV's sanctions and veto can then overturn results.
+    converge across swarms. Archon's sanctions and veto can then overturn results.
     """
     diff = (a.intent - b.intent) / UPSET_TEMPERATURE
     p_a_wins = 1.0 / (1.0 + math.exp(-diff))
@@ -358,8 +534,8 @@ def compete(a: Civilization, b: Civilization, state: dict[str, Any],
                            "original_winner": winner.name, "new_winner": loser.name})
         winner, loser = loser, winner
 
-    # GOV vetoes runaway leaders (needs a track record first).
-    if (winner.name != "GOV" and winner.total_matches >= 5
+    # Archon vetoes runaway leaders (needs a track record first).
+    if (winner.name != "Archon" and winner.total_matches >= 5
             and winner.win_rate() > VETO_WIN_RATE_ABOVE
             and state.get("veto_cooldown", 0) <= 0
             and not gov_suspended(state)):
@@ -398,6 +574,8 @@ def maybe_collapse(state: dict[str, Any], civs: list[Civilization], rng: random.
         civ.recent_intents = []
     state["world_pressure"] = 0.5
     state["collapses"] = state.get("collapses", 0) + 1
+    state["intel"] = {}                                     # intel goes stale
+    state["action_cooldowns"] = {n: {} for n in SWARMS}      # cooldowns reset
     return kind
 
 
@@ -408,7 +586,8 @@ def _push_recent(civ: Civilization) -> None:
 
 
 def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
-                   state_file: Path, history_file: Path) -> None:
+                   state_file: Path, history_file: Path,
+                   memory_dir: Path | None = None) -> None:
     sw = state["swarms"]
     civs = [
         Civilization(
@@ -421,13 +600,14 @@ def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
             action_counts=dict(sw[n]["action_counts"]),
             total_matches=sw[n]["total_matches"],
             recent_intents=list(sw[n]["recent_intents"]),
+            allies=set(sw[n].get("allies", [])),
         )
         for n in SWARMS
     ]
 
     event = generate_event(rng)
 
-    # Last generation's GOV mandates override this generation's decisions.
+    # Last generation's Archon mandates override this generation's decisions.
     gov_events: list[dict[str, Any]] = []
     pending = state.pop("pending_mandates", {})
     for target_name, forced in pending.items():
@@ -445,10 +625,34 @@ def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
         actions[civ.name] = action
         _push_recent(civ)
 
-    # GOV issues at most one new directive per generation.
+    # Archon issues at most one new directive per generation.
     directive = issue_directive(state, civs)
     if directive:
         gov_events.append(directive)
+
+    # Hands: resolve advanced actions (SPY/EMBARGO/SUMMIT). Mandates overrule.
+    targets: dict[str, str | None] = {}
+    advanced_events: list[dict[str, Any]] = []
+    for civ in civs:
+        if civ.name in pending:
+            continue
+        if getattr(civ, "_is_llm", False):
+            act = getattr(civ, "_llm_action", None)
+            if act not in ADVANCED_ACTIONS:
+                continue
+            target = normalize_target(getattr(civ, "_llm_target", None), civs, civ.name)
+        else:
+            act, target = choose_scripted_advanced_action(civ, civs, state, rng)
+            if act is None:
+                continue
+            actions[civ.name] = act
+            civ.action_counts[act] = civ.action_counts.get(act, 0) + 1
+        targets[civ.name] = target
+        if not resolve_advanced_action(state, civs, civ.name, act, target, advanced_events):
+            # Rejected hands fall back to holding position.
+            civ.action_counts[act] -= 1
+            civ.action_counts["STABILIZE"] = civ.action_counts.get("STABILIZE", 0) + 1
+            actions[civ.name] = "STABILIZE"
 
     update_alliances(civs)
     a, b = pick_competitors(civs, rng)
@@ -458,6 +662,7 @@ def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
     election = maybe_election(state, civs)
 
     # Tick down governance timers.
+    sanctioned_now = set(state.get("sanctions", {}))
     sanctions = state.get("sanctions", {})
     for name in list(sanctions):
         sanctions[name] -= 1
@@ -465,17 +670,21 @@ def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
             del sanctions[name]
     if state.get("veto_cooldown", 0) > 0:
         state["veto_cooldown"] -= 1
+    tick_cooldowns(state)
 
     # Persist learned fields back into state.
     for civ in civs:
         sw[civ.name]["intent"] = round(civ.intent, 4)
         sw[civ.name]["action_counts"] = civ.action_counts
         sw[civ.name]["recent_intents"] = civ.recent_intents
+        sw[civ.name]["allies"] = sorted(civ.allies)
 
     # Console output (compact, one line per civilization).
     for civ in civs:
         ally_str = f" allies={sorted(civ.allies)}" if civ.allies else ""
-        print(f"{civ.name} {civ.fingerprint()} -> {actions[civ.name]} | "
+        mode_tag = getattr(civ, "mode_tag", "")  # " [LLM]"/" [scripted]" in LLM runs
+        tgt = f"→{targets[civ.name]}" if targets.get(civ.name) else ""
+        print(f"{civ.name} {civ.fingerprint()} -> {actions[civ.name]}{tgt}{mode_tag} | "
               f"intent={civ.intent:.2f} wr={civ.win_rate():.2f}{ally_str}")
     print(f"perceived risk: {perceived}")
     print(f"🏆 {a.name} vs {b.name} → winner {winner.name} | 🌍 pressure {state['world_pressure']:.3f}")
@@ -484,22 +693,32 @@ def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
     for ge in gov_events:
         t = ge["type"]
         if t == "MANDATE":
-            print(f"🏛️ GOV MANDATE: {ge['target']} ordered to {ge['action']} next generation")
+            print(f"🏛️ Archon MANDATE: {ge['target']} ordered to {ge['action']} next generation")
         elif t == "MANDATE_APPLIED":
             print(f"🏛️ mandate enforced: {ge['target']} acts {ge['action']}")
         elif t == "SANCTION":
-            print(f"🏛️ GOV SANCTION: {ge['target']} win odds halved for {ge['generations']} generations")
+            print(f"🏛️ Archon SANCTION: {ge['target']} win odds halved for {ge['generations']} generations")
         elif t == "SANCTION_FLIP":
             print(f"🏛️ sanction flips it: {ge['original_winner']} denied → {ge['new_winner']} takes the win")
         elif t == "VETO":
-            print(f"🏛️ GOV VETO: {ge['original_winner']}'s win overturned → {ge['new_winner']} wins")
+            print(f"🏛️ Archon VETO: {ge['original_winner']}'s win overturned → {ge['new_winner']} wins")
+    for ae in advanced_events:
+        icon = {"SPY": "🕵️", "EMBARGO": "🚫", "SUMMIT": "🤝"}.get(ae["action"], "✋")
+        mark = "✓" if ae["ok"] else "✗"
+        tgt = f" → {ae['target']}" if ae["target"] else ""
+        print(f"{icon} {ae['actor']} {ae['action']}{tgt} {mark} ({ae['detail']})")
     if election:
         if election["ousted"]:
-            print(f"🗳️ ELECTION: GOV voted OUT ({election['votes_oust']}/3), "
+            print(f"🗳️ ELECTION: Archon voted OUT ({election['votes_oust']}/3), "
                   f"suspended {GOV_SUSPENSION_GENS} generations")
         else:
-            print(f"🗳️ ELECTION: GOV retains power ({election['votes_oust']}/3 votes to oust)")
+            print(f"🗳️ ELECTION: Archon retains power ({election['votes_oust']}/3 votes to oust)")
     print("-" * 64)
+
+    if memory_dir is not None:
+        append_civ_memories(memory_dir, state, civs, event, perceived, actions,
+                            targets, winner, {a.name, b.name}, sanctioned_now,
+                            set(pending))
 
     save_state(state_file, state)
     append_history(history_file, {
@@ -509,6 +728,8 @@ def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
         "perceived": perceived,
         "intents": {c.name: round(c.intent, 4) for c in civs},
         "actions": actions,
+        "targets": targets,
+        "advanced_actions": advanced_events,
         "match": f"{a.name} vs {b.name}",
         "winner": winner.name,
         "world_pressure": round(state["world_pressure"], 4),
@@ -557,9 +778,9 @@ def print_roster(state_file: Path, roster_file: Path) -> None:
     roster_file.parent.mkdir(parents=True, exist_ok=True)
     roster_file.write_text(json.dumps(roster, indent=2) + "\n", encoding="utf-8")
     if gov_suspended(state):
-        print(f"🏛️ GOV status: SUSPENDED until generation {state['gov_suspended_until']}")
+        print(f"🏛️ Archon status: SUSPENDED until generation {state['gov_suspended_until']}")
     else:
-        print("🏛️ GOV status: IN POWER")
+        print("🏛️ Archon status: IN POWER")
     print(f"\n(saved to {roster_file})")
 
 
