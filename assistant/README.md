@@ -16,14 +16,11 @@ their chosen API endpoint).
   instructions → add `KNOWLEDGE.md` as project knowledge.
 - Any other LLM platform with system prompts + file knowledge works the same.
 
-## 3. Licensed rental (roadmap)
-Renting assistant access to customers — metered, authenticated, billed —
-needs a small backend:
-- API proxy holding the provider key (never expose it client-side)
-- Auth (per-customer keys), usage metering, rate limits
-- Billing (Stripe or similar), per-seat or per-token pricing
-
-Suggested rental tiers: **Starter** $29/mo (1k messages), **Pro** $99/mo
-(10k messages + priority), **Enterprise** custom (SSO, SLA, private deploy).
-Build the proxy first; the chat UI in `docs/assistant.html` already speaks
-the OpenAI chat-completions format, so it can point at your proxy unchanged.
+## 3. Licensed rental (live)
+`../rental/` is the metered backend: per-customer API keys, monthly tier
+limits, rate limiting, usage ledger, and an OpenAI-compatible endpoint.
+The chat UI in `docs/assistant.html` already speaks that format — point its
+base URL at your rental server and hand out customer keys instead of
+provider keys. See `../rental/README.md` for deploy and `../rental/billing.md`
+for Stripe wiring. Suggested rental tiers: **Starter** $29/mo (1k messages),
+**Pro** $99/mo (10k messages), **Enterprise** custom (SSO, SLA, private deploy).
