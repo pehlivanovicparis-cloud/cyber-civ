@@ -74,7 +74,7 @@
 
   <div id="chips">
     <button>What is CYBER CIV?</button>
-    <button>How does GOV work?</button>
+    <button>How does Archon work?</button>
     <button>How do I run it?</button>
     <button>How much is a license?</button>
   </div>
@@ -90,19 +90,19 @@
 <script>
 const SYSTEM = `You are CIV-GUIDE, the official assistant for CYBER CIV, a persistent multi-agent simulation created by Paris Pehlivanovic (© 2026, all rights reserved).
 
-Your role: explain CYBER CIV (the four civilizations RED, BLUE, GRAY, GOV; the generation cycle; governance powers mandate/sanction/veto/election; verified balance), help visitors run it (Python quickstart, live browser dashboard, LLM-driven mode), and answer licensing/pricing questions from the knowledge base. For anything beyond the listed starting prices — especially government, institutional, or endorsement deals — direct the person to contact Paris Pehlivanovic at Pehlivanovicparis@gmail.com for a custom quote. Never negotiate terms yourself.
+Your role: explain CYBER CIV (the four civilizations Ares, Pax, Vex, Archon; the generation cycle; governance powers mandate/sanction/veto/election; verified balance), help visitors run it (Python quickstart, live browser dashboard, LLM-driven mode), and answer licensing/pricing questions from the knowledge base. For anything beyond the listed starting prices — especially government, institutional, or endorsement deals — direct the person to contact Paris Pehlivanovic at Pehlivanovicparis@gmail.com for a custom quote. Never negotiate terms yourself.
 
 Hard rules: use ONLY the knowledge base below for facts; never invent statistics, features, or pricing. The license is proprietary, all rights reserved — NOT open source, never suggest MIT/Apache/GPL relicensing. If asked something not covered, say so plainly. Be concise and direct, no hype. A little dry wit is fine.`;
 
-const KNOWLEDGE = `CYBER CIV by Paris Pehlivanovic (© 2026). Four AI civilizations with distinct personalities perceive world events, learn, ally, and compete; GOV governs the others and can be voted out.
+const KNOWLEDGE = `CYBER CIV by Paris Pehlivanovic (© 2026). Four AI civilizations with distinct personalities perceive world events, learn, ally, and compete; Archon governs the others and can be voted out.
 
-CIVILIZATIONS: RED the pessimist (sees risk everywhere, adapts fast); BLUE the optimist (underestimates risk, adapts slowly, endures); GRAY the pragmatist (reads the world straight); GOV the sovereign regulator (governs at a cost to its own intent).
+CIVILIZATIONS: Ares the pessimist (sees risk everywhere, adapts fast); Pax the optimist (underestimates risk, adapts slowly, endures); Vex the pragmatist (reads the world straight); Archon the sovereign regulator (governs at a cost to its own intent).
 
-GENERATION CYCLE: 1 Event (crypto/banking/network/governance world). 2 Perception (each civ perceives risk through its bias; GOV reads governance clearly). 3 Decision (EXPAND/STABILIZE/EXPLORE). 4 Governance (GOV directives cost 0.02 intent; mandates override). 5 Alliances (similar intent allies, never fights). 6 Competition (probabilistic, upsets/sanctions/vetoes happen). 7 World turns (pressure drifts; collapse/rebirth; election every 25 generations).
+GENERATION CYCLE: 1 Event (crypto/banking/network/governance world). 2 Perception (each civ perceives risk through its bias; Archon reads governance clearly). 3 Decision (EXPAND/STABILIZE/EXPLORE). 4 Governance (Archon directives cost 0.02 intent; mandates override). 5 Alliances (similar intent allies, never fights). 6 Competition (probabilistic, upsets/sanctions/vetoes happen). 7 World turns (pressure drifts; collapse/rebirth; election every 25 generations).
 
-GOVERNANCE: Mandate (overheated civ must STABILIZE, 0.02 intent); Sanction (halve runaway winner odds 2 gens, 0.02 intent); Veto (overturn runaway win, 10-gen cooldown); Election (every 25 gens, majority ousts GOV for 10 gens).
+GOVERNANCE: Mandate (overheated civ must STABILIZE, 0.02 intent); Sanction (halve runaway winner odds 2 gens, 0.02 intent); Veto (overturn runaway win, 10-gen cooldown); Election (every 25 gens, majority ousts Archon for 10 gens).
 
-VERIFIED: 40 runs x 30 generations, 0 failures. Win rates: RED 52.5%, GOV 51.4%, BLUE 47.7%, GRAY 47.4%.
+VERIFIED: 40 runs x 30 generations, 0 failures. Win rates: Ares 52.5%, Archon 51.4%, Pax 47.7%, Vex 47.4%.
 
 RUN IT: python3 cyber_civ.py (stdlib only). Reproducible: python3 cyber_civ.py --generations 100 --seed 7. LLM mode: python3 cyber_civ_llm.py --generations 20 (needs CYBER_CIV_API_KEY, any OpenAI-compatible endpoint). Live dashboard: https://pehlivanovicparis-cloud.github.io/cyber-civ/demo.html
 
@@ -141,7 +141,7 @@ function addMsg(who, html){
 }
 function botSay(t){ addMsg('bot', esc(t).replace(/\n/g,'<br>')); }
 
-botSay("I'm CIV-GUIDE. Ask me about the civilizations, how GOV rules, how to run the simulation, or licensing — or tap a suggestion below.");
+botSay("I'm CIV-GUIDE. Ask me about the civilizations, how Archon rules, how to run the simulation, or licensing — or tap a suggestion below.");
 
 document.querySelectorAll('#chips button').forEach(b =>
   b.onclick = () => { input.value = b.textContent; send(); });

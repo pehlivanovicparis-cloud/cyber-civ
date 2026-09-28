@@ -9,7 +9,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CYBER CIV — Persistent Evolving Cyber Civilization | Paris Pehlivanovic</title>
-<meta name="description" content="CYBER CIV is a persistent multi-agent simulation: four AI civilizations — RED, BLUE, GRAY — plus GOV, a sovereign regulator that sanctions, vetoes, and can be voted out of power. Watch them live.">
+<meta name="description" content="CYBER CIV is a persistent multi-agent simulation: four AI civilizations — Ares, Pax, Vex — plus Archon, a sovereign regulator that sanctions, vetoes, and can be voted out of power. Watch them live.">
 <meta name="keywords" content="AI simulation, multi-agent system, artificial civilizations, agent-based modeling, python simulation, AI governance">
 <meta name="author" content="Paris Pehlivanovic">
 <!-- TODO: replace https://pehlivanovicparis-cloud.github.io/cyber-civ with your GitHub Pages URL, e.g. https://username.github.io/cyber-civ -->
@@ -107,17 +107,17 @@
       <a class="btn gold" href="demo.html">▶ Watch it live</a>
       <a class="btn ghost" href="demo.html#code">⟨/⟩ View the code</a>
     </div>
-    <img src="terminal-capture.png" alt="CYBER CIV terminal output showing GOV sanctions, a veto, an election ousting the government, and the civilization fingerprint roster">
+    <img src="terminal-capture.png" alt="CYBER CIV terminal output showing Archon sanctions, a veto, an election ousting the government, and the civilization fingerprint roster">
   </div>
 
   <section id="civs">
     <h2>The <span>civilizations</span></h2>
     <p class="lede">Each civ perceives the same event differently, learns at its own rate, and carries a permanent fingerprint plus a drifting behavioral profile.</p>
     <div class="cards">
-      <div class="card" style="--ac:#ff5d5d"><h3>RED</h3><p>The pessimist. Sees risk everywhere, adapts fast, strikes hard.</p><span class="tag">bias +0.10 · lr 0.07</span></div>
-      <div class="card" style="--ac:#5aa9ff"><h3>BLUE</h3><p>The optimist. Underestimates risk, adapts slowly, endures.</p><span class="tag">bias −0.10 · lr 0.04</span></div>
-      <div class="card" style="--ac:#9aa4b8"><h3>GRAY</h3><p>The pragmatist. Reads the world straight, adapts in the middle.</p><span class="tag">bias 0.00 · lr 0.06</span></div>
-      <div class="card" style="--ac:#ffd166"><h3>GOV</h3><p>The sovereign regulator. Governs the other three — at a cost.</p><span class="tag">bias +0.05 · lr 0.05</span></div>
+      <div class="card" style="--ac:#ff5d5d"><h3>Ares</h3><p>The pessimist. Sees risk everywhere, adapts fast, strikes hard.</p><span class="tag">bias +0.10 · lr 0.07</span></div>
+      <div class="card" style="--ac:#5aa9ff"><h3>Pax</h3><p>The optimist. Underestimates risk, adapts slowly, endures.</p><span class="tag">bias −0.10 · lr 0.04</span></div>
+      <div class="card" style="--ac:#9aa4b8"><h3>Vex</h3><p>The pragmatist. Reads the world straight, adapts in the middle.</p><span class="tag">bias 0.00 · lr 0.06</span></div>
+      <div class="card" style="--ac:#ffd166"><h3>Archon</h3><p>The sovereign regulator. Governs the other three — at a cost.</p><span class="tag">bias +0.05 · lr 0.05</span></div>
     </div>
   </section>
 
@@ -126,9 +126,9 @@
     <p class="lede">Every generation runs the same seven-step cycle. Nothing is scripted — outcomes emerge.</p>
     <ol class="steps">
       <li><b>01</b> <strong>Event.</strong> A risk scenario is drawn from the crypto, banking, network, or governance worlds.</li>
-      <li><b>02</b> <strong>Perception.</strong> Each civ perceives the risk through its own bias plus noise. GOV reads governance events clearly; the rest guess.</li>
+      <li><b>02</b> <strong>Perception.</strong> Each civ perceives the risk through its own bias plus noise. Archon reads governance events clearly; the rest guess.</li>
       <li><b>03</b> <strong>Decision.</strong> Intent updates from perceived risk — EXPAND, STABILIZE, or EXPLORE.</li>
-      <li><b>04</b> <strong>Governance.</strong> GOV may issue a directive, each costing it intent. Pending mandates override decisions.</li>
+      <li><b>04</b> <strong>Governance.</strong> Archon may issue a directive, each costing it intent. Pending mandates override decisions.</li>
       <li><b>05</b> <strong>Alliances.</strong> Civs with near-identical intent ally and refuse to fight each other.</li>
       <li><b>06</b> <strong>Competition.</strong> Probabilistic contests favor higher intent — but upsets, sanctions, and vetoes happen.</li>
       <li><b>07</b> <strong>The world turns.</b> Pressure drifts with average intent. Extremes trigger collapse and rebirth. Every 25 generations: election.</li>
@@ -137,13 +137,13 @@
 
   <section id="governance">
     <h2>The <span>government</span></h2>
-    <p class="lede">GOV doesn't just compete — it rules. But rule has a price, and power expires.</p>
+    <p class="lede">Archon doesn't just compete — it rules. But rule has a price, and power expires.</p>
     <table>
       <tr><th>Power</th><th>Effect</th><th>Cost / limit</th></tr>
       <tr><td><strong>Mandate</strong></td><td>Orders an overheated civ to STABILIZE next generation</td><td class="mono">0.02 intent</td></tr>
       <tr><td><strong>Sanction</strong></td><td>Halves a runaway winner's odds for 2 generations</td><td class="mono">0.02 intent</td></tr>
       <tr><td><strong>Veto</strong></td><td>Overturns a runaway leader's match win</td><td class="mono">10-gen cooldown</td></tr>
-      <tr><td><strong>Election</strong></td><td>Every 25 generations the civs vote — majority ousts GOV for 10 generations</td><td class="mono">automatic</td></tr>
+      <tr><td><strong>Election</strong></td><td>Every 25 generations the civs vote — majority ousts Archon for 10 generations</td><td class="mono">automatic</td></tr>
     </table>
   </section>
 
@@ -152,10 +152,10 @@
     <p class="lede">40 runs × 30 generations. Zero failures. No civ dominates — every match is contestable, and personalities stay distinct.</p>
     <table>
       <tr><th>Civilization</th><th>Win rate</th></tr>
-      <tr><td><strong>RED</strong></td><td class="mono">52.5%</td></tr>
-      <tr><td><strong>GOV</strong></td><td class="mono">51.4%</td></tr>
-      <tr><td><strong>BLUE</strong></td><td class="mono">47.7%</td></tr>
-      <tr><td><strong>GRAY</strong></td><td class="mono">47.4%</td></tr>
+      <tr><td><strong>Ares</strong></td><td class="mono">52.5%</td></tr>
+      <tr><td><strong>Archon</strong></td><td class="mono">51.4%</td></tr>
+      <tr><td><strong>Pax</strong></td><td class="mono">47.7%</td></tr>
+      <tr><td><strong>Vex</strong></td><td class="mono">47.4%</td></tr>
     </table>
   </section>
 
