@@ -65,10 +65,12 @@ GET  /admin/usage                # per-customer messages + tokens this month
 - Set `RENTAL_RATE_LIMIT` (requests/minute per key, default 30).
 - Rotate `RENTAL_ADMIN_TOKEN`; it is the only credential that can mint keys.
 - Back up `rental.db` — it holds your customer registry and usage ledger.
-- Wire billing webhooks (see `billing.md`) so subscriptions create/suspend keys.
+- Run `stripe_webhook.py` (see `billing.md`) so subscriptions create and
+  revoke keys automatically.
 
 ## Tests
 
 ```bash
-python3 test_server.py   # 14 integration tests, stub provider, ephemeral ports
+python3 test_server.py          # 14 integration tests, stub provider
+python3 test_stripe_webhook.py  # 17 webhook tests, fake admin server
 ```
