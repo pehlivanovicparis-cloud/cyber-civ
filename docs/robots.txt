@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://pehlivanovicparis-cloud.github.io/cyber-civ/sitemap.xml
