@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<!--
+  CYBER CIV — Pricing / licensed access
+  Copyright (c) 2026 Paris Pehlivanovic. All rights reserved.
+  PROPRIETARY — see LICENSE for terms.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pricing — Licensed CIV-GUIDE Access | CYBER CIV</title>
+<meta name="description" content="License metered API access to CIV-GUIDE, the CYBER CIV assistant. Starter $29/mo, Pro $99/mo, Enterprise custom.">
+<link rel="canonical" href="https://pehlivanovicparis-cloud.github.io/cyber-civ/pricing.html">
+<style>
+  :root{--bg:#0b0e14;--panel:#121722;--line:#232c3f;
+    --txt:#dbe2f1;--dim:#8b96b3;--gold:#ffd166;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.6}
+  .wrap{max-width:1020px;margin:0 auto;padding:0 22px}
+  nav{position:sticky;top:0;background:rgba(11,14,20,.92);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);z-index:10}
+  nav .wrap{display:flex;align-items:center;gap:22px;padding-top:12px;padding-bottom:12px}
+  nav .logo{font-weight:800;letter-spacing:2px;margin-right:auto}
+  nav .logo span{color:var(--gold)}
+  nav a{color:var(--dim);text-decoration:none;font-size:14px}
+  nav a:hover{color:var(--txt)}
+  nav a.cta{background:var(--gold);color:#111;border-radius:8px;padding:8px 16px;font-weight:700}
+  .hero{padding:72px 0 40px;text-align:center}
+  .kicker{display:inline-block;font-family:var(--mono);font-size:12px;letter-spacing:3px;
+    color:var(--gold);border:1px solid #4a3f1e;border-radius:20px;padding:6px 16px;margin-bottom:20px}
+  h1{font-size:clamp(36px,6vw,60px);margin:0;letter-spacing:3px}
+  h1 span{color:var(--gold)}
+  .hero p.sub{font-size:18px;color:var(--dim);max-width:620px;margin:16px auto 0}
+  .tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+    gap:16px;padding:40px 0}
+  .tier{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:28px 26px;display:flex;flex-direction:column}
+  .tier.pro{border-color:var(--gold);box-shadow:0 0 40px rgba(255,209,102,.08);
+    position:relative}
+  .tier .badge{position:absolute;top:-13px;left:50%;transform:translateX(-50%);
+    background:var(--gold);color:#111;font-size:12px;font-weight:800;letter-spacing:1px;
+    border-radius:12px;padding:3px 14px}
+  .tier h3{margin:0 0 4px;font-size:20px;letter-spacing:1px}
+  .tier .price{font-size:38px;font-weight:800;margin:8px 0 2px}
+  .tier .price small{font-size:15px;color:var(--dim);font-weight:400}
+  .tier ul{list-style:none;padding:0;margin:18px 0 24px;display:grid;gap:9px;
+    font-size:14px;color:var(--dim);flex:1}
+  .tier ul li::before{content:"✓ ";color:var(--gold)}
+  .btn{display:block;text-align:center;border-radius:10px;padding:13px 20px;
+    font-weight:700;text-decoration:none;font-size:16px}
+  .btn.gold{background:var(--gold);color:#111}
+  .btn.ghost{border:1px solid var(--line);color:var(--txt)}
+  section{padding:48px 0;border-top:1px solid var(--line)}
+  h2{font-size:28px;margin:0 0 8px;letter-spacing:1px;text-align:center}
+  h2 span{color:var(--gold)}
+  .lede{color:var(--dim);max-width:640px;margin:0 auto 28px;text-align:center}
+  ol.steps{list-style:none;padding:0;margin:0 auto;max-width:640px;display:grid;gap:10px}
+  ol.steps li{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:14px 18px;font-size:15px}
+  ol.steps li b{color:var(--gold);font-family:var(--mono);margin-right:10px}
+  .faq{max-width:680px;margin:0 auto;display:grid;gap:12px}
+  .faq details{background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:14px 18px}
+  .faq summary{cursor:pointer;font-weight:700;font-size:15px}
+  .faq p{color:var(--dim);font-size:14px;margin:10px 0 0}
+  .faq code{font-family:var(--mono);font-size:13px;color:var(--gold)}
+  footer{text-align:center;color:var(--dim);font-size:13px;padding:34px 0 40px;
+    border-top:1px solid var(--line)}
+  footer a{color:var(--gold)}
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <div class="logo">CYBER <span>CIV</span></div>
+  <a href="index.html">Home</a>
+  <a href="demo.html">Live Demo</a>
+  <a href="assistant.html">Assistant</a>
+  <a class="cta" href="pricing.html">Pricing</a>
+</div></nav>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="kicker">LICENSED ACCESS</div>
+    <h1>PUT CIV-GUIDE <span>TO WORK</span></h1>
+    <p class="sub">Metered API access to the CYBER CIV assistant — your own key,
+    a monthly message quota, and answers grounded in the official knowledge base.
+    Cancel anytime.</p>
+  </div>
+
+  <div class="tiers">
+    <div class="tier">
+      <h3>STARTER</h3>
+      <div class="price">$29<small>/month</small></div>
+      <ul>
+        <li>1,000 assistant messages / month</li>
+        <li>1 API key</li>
+        <li>OpenAI-compatible endpoint</li>
+        <li>Email support</li>
+      </ul>
+      <!-- PASTE STRIPE PAYMENT LINK FOR STARTER BELOW (href) -->
+      <a class="btn ghost" href="#">Subscribe — Starter</a>
+    </div>
+    <div class="tier pro">
+      <div class="badge">MOST POPULAR</div>
+      <h3>PRO</h3>
+      <div class="price">$99<small>/month</small></div>
+      <ul>
+        <li>10,000 assistant messages / month</li>
+        <li>Up to 5 API keys</li>
+        <li>OpenAI-compatible endpoint</li>
+        <li>Priority email support</li>
+      </ul>
+      <!-- PASTE STRIPE PAYMENT LINK FOR PRO BELOW (href) -->
+      <a class="btn gold" href="#">Subscribe — Pro</a>
+    </div>
+    <div class="tier">
+      <h3>ENTERPRISE</h3>
+      <div class="price">Custom</div>
+      <ul>
+        <li>Unlimited messages</li>
+        <li>SSO &amp; private deployment</li>
+        <li>SLA &amp; onboarding</li>
+        <li>Direct line to Paris</li>
+      </ul>
+      <a class="btn ghost" href="mailto:Pehlivanovicparis@gmail.com?subject=CYBER%20CIV%20Enterprise%20license">Talk to us</a>
+    </div>
+  </div>
+
+  <section>
+    <h2>HOW IT <span>WORKS</span></h2>
+    <p class="lede">From checkout to first API call in under five minutes.</p>
+    <ol class="steps">
+      <li><b>1</b> Subscribe — checkout is handled securely by Stripe.</li>
+      <li><b>2</b> Get your key — your personal <code style="font-family:var(--mono);color:var(--gold)">civ_…</code> API key arrives by email, automatically.</li>
+      <li><b>3</b> Call the API — any OpenAI-compatible client works. The CIV-GUIDE system prompt and knowledge base are injected for you.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>QUESTIONS, <span>ANSWERED</span></h2>
+    <p class="lede"></p>
+    <div class="faq">
+      <details>
+        <summary>What exactly am I buying?</summary>
+        <p>Metered access to the CIV-GUIDE assistant API: ask about the civilizations, the governance mechanics, how to run the simulation, and licensing. Every response is grounded in the official CYBER CIV knowledge base — no hallucinations about the project.</p>
+      </details>
+      <details>
+        <summary>How do I use my API key?</summary>
+        <p>Send <code>POST</code> requests to <code>/v1/chat/completions</code> with <code>Authorization: Bearer YOUR_KEY</code>, exactly like the OpenAI API. The web chat on this site works too — paste your customer key instead of a provider key.</p>
+      </details>
+      <details>
+        <summary>What happens if I hit my monthly limit?</summary>
+        <p>You'll get a clear upgrade prompt instead of a cryptic error. Limits reset on the first of each month. Upgrade mid-cycle and your new quota applies immediately.</p>
+      </details>
+      <details>
+        <summary>Can I cancel?</summary>
+        <p>Yes, anytime from the Stripe customer portal. Your key stays active until the end of the billing period, then it's revoked automatically.</p>
+      </details>
+      <details>
+        <summary>Is the simulation itself included?</summary>
+        <p>The assistant API is what's metered. The simulation code stays under its proprietary license — running it commercially needs a separate written agreement. Ask us.</p>
+      </details>
+    </div>
+  </section>
+</div>
+
+<footer>© 2026 Paris Pehlivanovic. All rights reserved. · CYBER CIV is proprietary software<br>
+<a href="index.html#license">License terms</a> · <a href="mailto:Pehlivanovicparis@gmail.com">Pehlivanovicparis@gmail.com</a></footer>
+</body>
+</html>
