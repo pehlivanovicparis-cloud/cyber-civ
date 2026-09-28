@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<!--
+  CYBER CIV — CIV-GUIDE assistant
+  Copyright (c) 2026 Paris Pehlivanovic. All rights reserved.
+  PROPRIETARY — see LICENSE for terms.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CIV-GUIDE — Ask about CYBER CIV | Paris Pehlivanovic</title>
+<meta name="description" content="CIV-GUIDE answers questions about CYBER CIV: the civilizations, the governance mechanics, how to run it, and licensing.">
+<style>
+  :root{--bg:#0b0e14;--panel:#121722;--line:#232c3f;--txt:#dbe2f1;
+    --dim:#8b96b3;--gold:#ffd166;--mono:ui-monospace,Menlo,Consolas,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:760px;margin:0 auto;padding:0 18px;min-height:100vh;
+    display:flex;flex-direction:column}
+  header{padding:26px 0 8px;text-align:center}
+  header h1{margin:0;letter-spacing:3px;font-size:26px}
+  header h1 span{color:var(--gold)}
+  header p{color:var(--dim);font-size:14px;margin:6px 0 0}
+  header a{color:var(--gold)}
+  #settings{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;margin:16px 0;display:grid;gap:8px}
+  #settings .row{display:flex;gap:8px;flex-wrap:wrap}
+  #settings input{flex:1;min-width:0;background:#0b0e14;border:1px solid var(--line);
+    color:var(--txt);border-radius:8px;padding:9px 12px;font-size:13px;font-family:var(--mono)}
+  #settings button{background:var(--gold);border:none;border-radius:8px;padding:9px 18px;
+    font-weight:700;cursor:pointer;color:#111}
+  #settings small{color:var(--dim);font-size:12px}
+  #chat{flex:1;overflow-y:auto;padding:10px 0;display:flex;flex-direction:column;gap:12px}
+  .msg{max-width:88%;padding:12px 16px;border-radius:14px;font-size:15px;line-height:1.55}
+  .msg.user{align-self:flex-end;background:#1d2a45;border:1px solid #2c3d63}
+  .msg.bot{align-self:flex-start;background:var(--panel);border:1px solid var(--line)}
+  .msg.bot pre{background:#0b0e14;border:1px solid var(--line);border-radius:8px;
+    padding:10px 12px;overflow-x:auto;font-size:13px}
+  .msg .who{display:block;font-size:11px;letter-spacing:2px;color:var(--dim);margin-bottom:6px}
+  #chips{display:flex;gap:8px;flex-wrap:wrap;padding:6px 0}
+  #chips button{background:transparent;border:1px solid var(--line);color:var(--dim);
+    border-radius:16px;padding:7px 14px;font-size:13px;cursor:pointer}
+  #chips button:hover{color:var(--gold);border-color:var(--gold)}
+  #composer{display:flex;gap:8px;padding:14px 0 8px}
+  #composer input{flex:1;background:var(--panel);border:1px solid var(--line);
+    color:var(--txt);border-radius:10px;padding:13px 16px;font-size:15px}
+  #composer button{background:var(--gold);border:none;border-radius:10px;padding:0 24px;
+    font-weight:700;cursor:pointer;color:#111;font-size:15px}
+  #composer button:disabled{opacity:.5;cursor:wait}
+  footer{text-align:center;color:var(--dim);font-size:12px;padding:18px 0 26px}
+  .typing{color:var(--dim);font-style:italic}
+<div class="wrap">
+  <header>
+    <h1>CIV-<span>GUIDE</span></h1>
+    <p>Ask me anything about CYBER CIV — the civilizations, the governance, the code, licensing.<br>
+    <a href="index.html">← back to the site</a></p>
+  </header>
+
+  <div id="settings">
+    <div class="row">
+      <input id="key" type="password" placeholder="API key (stored only in this browser)" autocomplete="off">
+      <input id="base" type="text" placeholder="API base URL">
+      <input id="model" type="text" placeholder="model">
+      <button id="save">Save</button>
+    </div>
+    <small>Works with any OpenAI-compatible API (OpenAI, Together, local Ollama…). Your key never leaves this browser except to your chosen endpoint.</small>
+  </div>
+
+  <div id="chat"></div>
+
+  <div id="chips">
+    <button>What is CYBER CIV?</button>
+    <button>How does GOV work?</button>
+    <button>How do I run it?</button>
+    <button>How much is a license?</button>
+  </div>
+
+  <div id="composer">
+    <input id="input" type="text" placeholder="Ask about CYBER CIV…" autocomplete="off">
+    <button id="send">Send</button>
+  </div>
+
+  <footer>© 2026 Paris Pehlivanovic · CYBER CIV is proprietary software</footer>
+</div>
+
+<script>
+const SYSTEM = `You are CIV-GUIDE, the official assistant for CYBER CIV, a persistent multi-agent simulation created by Paris Pehlivanovic (© 2026, all rights reserved).
+
+Your role: explain CYBER CIV (the four civilizations RED, BLUE, GRAY, GOV; the generation cycle; governance powers mandate/sanction/veto/election; verified balance), help visitors run it (Python quickstart, live browser dashboard, LLM-driven mode), and answer licensing/pricing questions from the knowledge base. For anything beyond the listed starting prices — especially government, institutional, or endorsement deals — direct the person to contact Paris Pehlivanovic at Pehlivanovicparis@gmail.com for a custom quote. Never negotiate terms yourself.
+
+Hard rules: use ONLY the knowledge base below for facts; never invent statistics, features, or pricing. The license is proprietary, all rights reserved — NOT open source, never suggest MIT/Apache/GPL relicensing. If asked something not covered, say so plainly. Be concise and direct, no hype. A little dry wit is fine.`;
+
+const KNOWLEDGE = `CYBER CIV by Paris Pehlivanovic (© 2026). Four AI civilizations with distinct personalities perceive world events, learn, ally, and compete; GOV governs the others and can be voted out.
+
+CIVILIZATIONS: RED the pessimist (sees risk everywhere, adapts fast); BLUE the optimist (underestimates risk, adapts slowly, endures); GRAY the pragmatist (reads the world straight); GOV the sovereign regulator (governs at a cost to its own intent).
+
+GENERATION CYCLE: 1 Event (crypto/banking/network/governance world). 2 Perception (each civ perceives risk through its bias; GOV reads governance clearly). 3 Decision (EXPAND/STABILIZE/EXPLORE). 4 Governance (GOV directives cost 0.02 intent; mandates override). 5 Alliances (similar intent allies, never fights). 6 Competition (probabilistic, upsets/sanctions/vetoes happen). 7 World turns (pressure drifts; collapse/rebirth; election every 25 generations).
+
+GOVERNANCE: Mandate (overheated civ must STABILIZE, 0.02 intent); Sanction (halve runaway winner odds 2 gens, 0.02 intent); Veto (overturn runaway win, 10-gen cooldown); Election (every 25 gens, majority ousts GOV for 10 gens).
+
+VERIFIED: 40 runs x 30 generations, 0 failures. Win rates: RED 52.5%, GOV 51.4%, BLUE 47.7%, GRAY 47.4%.
+
+RUN IT: python3 cyber_civ.py (stdlib only). Reproducible: python3 cyber_civ.py --generations 100 --seed 7. LLM mode: python3 cyber_civ_llm.py --generations 20 (needs CYBER_CIV_API_KEY, any OpenAI-compatible endpoint). Live dashboard: https://pehlivanovicparis-cloud.github.io/cyber-civ/demo.html
+
+LICENSE: proprietary, all rights reserved. Reading allowed; copying/modification/distribution/use needs written permission. Commercial/governmental/institutional/endorsement use needs a paid agreement. Contact: Pehlivanovicparis@gmail.com.
+
+PRICING (starting points): indie/small commercial $250-500 one-time; company/enterprise $2,500-10,000 per year; government/institutional/endorsement $10,000+ custom quote only.`;
+
+const chat = document.getElementById('chat');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('send');
+
+const store = {
+  get k(){ return localStorage.getItem('civ_key')||''; },
+  get b(){ return localStorage.getItem('civ_base')||'https://api.openai.com/v1'; },
+  get m(){ return localStorage.getItem('civ_model')||'gpt-4o-mini'; },
+  set(k,v){ localStorage.setItem(k,v); }
+};
+document.getElementById('base').value = store.b;
+document.getElementById('model').value = store.m;
+document.getElementById('key').value = store.k;
+document.getElementById('save').onclick = () => {
+  store.set('civ_key', document.getElementById('key').value.trim());
+  store.set('civ_base', document.getElementById('base').value.trim()||'https://api.openai.com/v1');
+  store.set('civ_model', document.getElementById('model').value.trim()||'gpt-4o-mini');
+  botSay('Settings saved. Ask me anything.');
+};
+
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function addMsg(who, html){
+  const d = document.createElement('div');
+  d.className = 'msg '+who;
+  d.innerHTML = `<span class="who">${who==='user'?'YOU':'CIV-GUIDE'}</span>${html}`;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  return d;
+}
+function botSay(t){ addMsg('bot', esc(t).replace(/\n/g,'<br>')); }
+
+botSay("I'm CIV-GUIDE. Ask me about the civilizations, how GOV rules, how to run the simulation, or licensing — or tap a suggestion below.");
+
+document.querySelectorAll('#chips button').forEach(b =>
+  b.onclick = () => { input.value = b.textContent; send(); });
+
+async function send(){
+  const q = input.value.trim();
+  if(!q || sendBtn.disabled) return;
+  if(!store.k){ botSay('Add your API key above first (any OpenAI-compatible key works).'); return; }
+  input.value = '';
+  addMsg('user', esc(q));
+  sendBtn.disabled = true;
+  const typing = addMsg('bot', '<span class="typing">thinking…</span>');
+  try {
+    const res = await fetch(store.b.replace(/\/$/,'')+'/chat/completions', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+store.k},
+      body: JSON.stringify({
+        model: store.m, temperature: 0.5,
+        messages:[
+          {role:'system', content: SYSTEM+'\n\nKNOWLEDGE BASE:\n'+KNOWLEDGE},
+          {role:'user', content: q}
+        ]
+      })
+    });
+    if(!res.ok) throw new Error('API error '+res.status);
+    const data = await res.json();
+    typing.innerHTML = '<span class="who">CIV-GUIDE</span>'+
+      esc(data.choices[0].message.content).replace(/\n/g,'<br>');
+  } catch(e){
+    typing.innerHTML = '<span class="who">CIV-GUIDE</span>'+
+      esc('Could not reach the API: '+e.message+'. Check your key, base URL, and model above.');
+  }
+  chat.scrollTop = chat.scrollHeight;
+  sendBtn.disabled = false;
+}
+sendBtn.onclick = send;
+input.onkeydown = e => { if(e.key==='Enter') send(); };
+</script>
+</body>
+</html>
