@@ -91,6 +91,23 @@ python3 cyber_civ.py --reset                  # wipe state and start over
 No dependencies beyond the Python standard library. No network access.
 State lives in `memory/store.json`; full history in `memory/history.jsonl`.
 
+### LLM-driven civilizations (Phase 5)
+
+Give each civilization a real language-model brain — perception and actions
+come from distinct personas, while alliances, competition, sanctions, vetoes,
+and elections still run on the verified core engine:
+
+```bash
+export CYBER_CIV_API_KEY="..."          # any OpenAI-compatible endpoint
+python3 cyber_civ_llm.py --generations 20 --seed 7
+python3 cyber_civ_llm.py --check        # one test API call
+python3 cyber_civ_llm.py --dry-run --generations 3   # preview prompts, no API
+```
+
+Any API failure falls back to the scripted behavior, so the simulation never
+stalls. See `assistant/` for CIV-GUIDE, the project's AI assistant
+(system prompt + knowledge base + web chat at `/assistant.html`).
+
 Example output:
 
 ```
@@ -111,7 +128,10 @@ GOV   B644F5AB7AED  Pessimist Stabilizer (Balanced)   intent=0.55 wr=0.51
 
 ```
 cyber_civ.py    # the simulation (stdlib only)
+cyber_civ_llm.py # LLM-driven civilizations (Phase 5, stdlib + any OpenAI-compatible API)
+assistant/      # CIV-GUIDE assistant: system prompt, knowledge base, deploy guide
 dashboard.html  # live web dashboard — open in any browser, no server needed
+docs/           # public website (GitHub Pages): index, demo, assistant chat
 LICENSE         # proprietary license — all rights reserved
 README.md       # this file
 launch-kit-x.md # X/Twitter launch thread
