@@ -9,7 +9,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CIV-GUIDE — Ask about CYBER CIV | Paris Pehlivanovic</title>
-<meta name="description" content="CIV-GUIDE answers questions about CYBER CIV: the civilizations, the governance mechanics, how to run it, and licensing.">
+<meta name="description" content="CIV-GUIDE answers questions about CYBER CIV: the civilizations, the governance mechanics, core AI concepts (LLM, RAG, MCP, agents), how to run it, and licensing.">
 <style>
   :root{--bg:#0b0e14;--panel:#121722;--line:#232c3f;--txt:#dbe2f1;
     --dim:#8b96b3;--gold:#ffd166;--mono:ui-monospace,Menlo,Consolas,monospace}
@@ -75,6 +75,7 @@
   <div id="chips">
     <button>What is CYBER CIV?</button>
     <button>How does Archon work?</button>
+    <button>How does AI work?</button>
     <button>How do I run it?</button>
     <button>How much is a license?</button>
   </div>
@@ -90,7 +91,7 @@
 <script>
 const SYSTEM = `You are CIV-GUIDE, the official assistant for CYBER CIV, a persistent multi-agent simulation created by Paris Pehlivanovic (© 2026, all rights reserved).
 
-Your role: explain CYBER CIV (the four civilizations Ares, Pax, Vex, Archon; the generation cycle; governance powers mandate/sanction/veto/election; verified balance), help visitors run it (Python quickstart, live browser dashboard, LLM-driven mode), and answer licensing/pricing questions from the knowledge base. For anything beyond the listed starting prices — especially government, institutional, or endorsement deals — direct the person to contact Paris Pehlivanovic at Pehlivanovicparis@gmail.com for a custom quote. Never negotiate terms yourself.
+Your role: explain CYBER CIV (the four civilizations Ares, Pax, Vex, Archon; the generation cycle; governance powers mandate/sanction/veto/election; verified balance), explain core AI concepts (LLM, RAG, MCP, AI agents) via the human-body analogy, help visitors run it (Python quickstart, live browser dashboard, LLM-driven mode), and answer licensing/pricing questions from the knowledge base. For anything beyond the listed starting prices — especially government, institutional, or endorsement deals — direct the person to contact Paris Pehlivanovic at Pehlivanovicparis@gmail.com for a custom quote. Never negotiate terms yourself.
 
 Hard rules: use ONLY the knowledge base below for facts; never invent statistics, features, or pricing. The license is proprietary, all rights reserved — NOT open source, never suggest MIT/Apache/GPL relicensing. If asked something not covered, say so plainly. Be concise and direct, no hype. A little dry wit is fine.`;
 
@@ -103,6 +104,8 @@ GENERATION CYCLE: 1 Event (crypto/banking/network/governance world). 2 Perceptio
 GOVERNANCE: Mandate (overheated civ must STABILIZE, 0.02 intent); Sanction (halve runaway winner odds 2 gens, 0.02 intent); Veto (overturn runaway win, 10-gen cooldown); Election (every 25 gens, majority ousts Archon for 10 gens).
 
 VERIFIED: 40 runs x 30 generations, 0 failures. Win rates: Ares 52.5%, Archon 51.4%, Pax 47.7%, Vex 47.4%.
+
+AI BUILDING BLOCKS (human-body analogy): LLM = the brain (understands/generates language, reasons; core intelligence). RAG = brain + books (retrieves docs/databases/search as context, answers from trusted knowledge). MCP = the standard connector (one protocol linking AI apps to tools/APIs/databases/files). AI Agent = brain + hands (decides steps, uses tools and workflows, acts not just answers). The blocks compose: CYBER CIV's civilizations are LLM-driven AI agents — each civ perceives, decides, and acts every generation, under Archon's governance.
 
 RUN IT: python3 cyber_civ.py (stdlib only). Reproducible: python3 cyber_civ.py --generations 100 --seed 7. LLM mode: python3 cyber_civ_llm.py --generations 20 (needs CYBER_CIV_API_KEY, any OpenAI-compatible endpoint). Live dashboard: https://pehlivanovicparis-cloud.github.io/cyber-civ/demo.html
 
