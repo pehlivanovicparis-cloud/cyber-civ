@@ -2,3 +2,12 @@
 memory/
 __pycache__/
 *.pyc
+
+# secrets — never commit
+.env
+.env.*
+*.key
+*.pem
+*.token
+credentials*
+secrets*
