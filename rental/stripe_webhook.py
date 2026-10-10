@@ -12,7 +12,9 @@ lifecycle calls:
                                   key dies only when the subscription does)
 
 Stripe signatures are verified (HMAC-SHA256, timestamp tolerance).
-Event IDs are recorded so retried deliveries are idempotent.
+Event IDs are claimed before processing and marked done after, so retried
+deliveries are idempotent: a failed run leaves the claim open and Stripe's
+retry reprocesses it, while the links table prevents double-provisioning.
 
 Stdlib only. No dependencies.
 
@@ -62,6 +64,7 @@ ADMIN_TOKEN = env("RENTAL_ADMIN_TOKEN", required=True)
 PORT = int(env("WEBHOOK_PORT", "8766"))
 DB_PATH = Path(env("WEBHOOK_DB", str(HERE / "webhook.db")))
 TOLERANCE = 300  # seconds; Stripe replay-protection window
+STALE_AFTER = 600  # seconds; abandoned 'processing' claims may be reclaimed
 
 PRICE_TO_TIER = {
     env("PRICE_STARTER", required=True): "starter",
@@ -95,8 +98,8 @@ def init_db():
             CREATE TABLE IF NOT EXISTS events (
                 event_id TEXT PRIMARY KEY,
                 type TEXT NOT NULL,
-                received_at TEXT NOT NULL DEFAULT
-                    (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+                status TEXT NOT NULL DEFAULT 'processing',
+                received_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
             );
             CREATE TABLE IF NOT EXISTS links (
                 stripe_customer_id TEXT PRIMARY KEY,
@@ -106,17 +109,52 @@ def init_db():
                 revoked INTEGER NOT NULL DEFAULT 0
             );
         """)
+        # migrate dev DBs created before the status column existed
+        cols = {r["name"]
+                for r in conn.execute("PRAGMA table_info(events)")}
+        if "status" not in cols:
+            conn.execute("ALTER TABLE events "
+                         "ADD COLUMN status TEXT NOT NULL DEFAULT 'done'")
 
 
-def seen_event(event_id: str) -> bool:
+def claim_event(event_id: str, etype: str) -> str:
+    """Claim an event for processing.
+
+    Returns 'new' (caller should process it), 'duplicate' (already done),
+    or 'in-progress' (another worker holds a fresh claim; ack without
+    reprocessing). A 'processing' claim older than STALE_AFTER seconds is
+    treated as abandoned (e.g. crash mid-handling) and may be reclaimed.
+    """
+    now = int(time.time())
     with _lock, db() as conn:
         row = conn.execute(
-            "SELECT 1 FROM events WHERE event_id = ?", (event_id,)).fetchone()
-        if row:
-            return True
-        conn.execute("INSERT INTO events (event_id, type) VALUES (?, '')",
+            "SELECT status, received_at FROM events WHERE event_id = ?",
+            (event_id,)).fetchone()
+        if row is None:
+            conn.execute(
+                "INSERT INTO events (event_id, type, status, received_at)"
+                " VALUES (?, ?, 'processing', ?)",
+                (event_id, etype, now))
+            return "new"
+        if row["status"] == "done":
+            return "duplicate"
+        try:
+            age = now - int(row["received_at"])
+        except (TypeError, ValueError):
+            age = 0
+        if age >= STALE_AFTER:
+            conn.execute(
+                "UPDATE events SET status='processing', received_at=?,"
+                " type=? WHERE event_id = ?",
+                (now, etype, event_id))
+            return "new"
+        return "in-progress"
+
+
+def mark_done(event_id: str):
+    with _lock, db() as conn:
+        conn.execute("UPDATE events SET status='done' WHERE event_id = ?",
                      (event_id,))
-        return False
 
 
 def get_link(stripe_cid: str):
@@ -256,7 +294,12 @@ def handle_event(event: dict):
         cust = admin("POST", "/admin/customers",
                      {"name": email or stripe_cid, "tier": tier})
         save_link(stripe_cid, cust["id"], tier, email)
-        deliver_key(email, cust["api_key"], tier)
+        try:
+            deliver_key(email, cust["api_key"], tier)
+        except Exception as e:
+            # Key is minted and linked; don't fail the event over email.
+            print(f"[webhook] DELIVERY FAILED for {stripe_cid}: {e!r} — "
+                  f"key minted (rental id {cust['id']}); re-issue manually")
         print(f"[webhook] provisioned {tier} key for {stripe_cid}")
 
     elif etype == "customer.subscription.updated":
@@ -271,7 +314,11 @@ def handle_event(event: dict):
         cust = admin("POST", "/admin/customers",
                      {"name": link["email"] or stripe_cid, "tier": tier})
         save_link(stripe_cid, cust["id"], tier, link["email"])
-        deliver_key(link["email"], cust["api_key"], tier)
+        try:
+            deliver_key(link["email"], cust["api_key"], tier)
+        except Exception as e:
+            print(f"[webhook] DELIVERY FAILED for {stripe_cid}: {e!r} — "
+                  f"key minted (rental id {cust['id']}); re-issue manually")
         print(f"[webhook] {stripe_cid} moved {link['tier']} -> {tier}")
 
     elif etype == "customer.subscription.deleted":
@@ -329,17 +376,24 @@ class Handler(BaseHTTPRequestHandler):
         event_id = event.get("id", "")
         if not event_id:
             return self._send(400, {"error": "missing event id"})
-        if seen_event(event_id):
+        claim = claim_event(event_id, event.get("type", ""))
+        if claim == "duplicate":
             return self._send(200, {"received": True, "duplicate": True})
+        if claim == "in-progress":
+            return self._send(200, {"received": True, "in_progress": True})
         try:
             handle_event(event)
         except AdminError as e:
-            # Return 500 so Stripe retries; event stays marked seen to avoid
-            # double-provisioning — the retry will no-op on the link check.
-            print(f"[webhook] admin error: {e}")
+            # 500 so Stripe retries. The event is NOT marked done, so the
+            # retry reprocesses it; the links table keeps provisioning
+            # idempotent (no double keys).
+            print(f"[webhook] admin error on {event_id}: {e} — leaving "
+                  "unacked for Stripe retry")
             return self._send(500, {"error": "admin backend unavailable"})
-        except Exception as e:  # never 500 on unexpected bugs; log loudly
+        except Exception as e:  # unexpected bug: log loudly, but ack so a
+            # poison event doesn't retry forever
             print(f"[webhook] UNHANDLED ERROR on {event_id}: {e!r}")
+        mark_done(event_id)
         return self._send(200, {"received": True})
 
 

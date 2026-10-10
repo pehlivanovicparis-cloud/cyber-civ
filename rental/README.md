@@ -42,7 +42,7 @@ The API is OpenAI-compatible — point any client at it:
 curl -s localhost:8765/v1/chat/completions \
   -H "Authorization: Bearer civ_..." \
   -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","content":"How does GOV work?"}]}'
+  -d '{"messages":[{"role":"user","content":"How does Archon work?"}]}'
 ```
 
 The web chat at `docs/assistant.html` works unchanged: set its base URL to

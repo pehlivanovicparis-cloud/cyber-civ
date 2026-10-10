@@ -23,6 +23,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 ADMIN_CALLS = []  # (method, path, body) seen by the fake admin server
+FAIL_NEXT = []  # paths for which the fake admin should return 500 once
 NEXT_ID = [100]
 
 
@@ -39,6 +40,9 @@ class FakeAdmin(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0) or 0)
         body = json.loads(self.rfile.read(length).decode()) if length else {}
         ADMIN_CALLS.append((self.path, body))
+        if self.path in FAIL_NEXT:
+            FAIL_NEXT.remove(self.path)
+            return self._json(500, {"error": "boom"})
         if self.path == "/admin/customers":
             NEXT_ID[0] += 1
             return self._json(201, {
@@ -202,6 +206,65 @@ def main():
     status, _ = post_webhook(hook_port, ev7, secret)
     check("payment_failed tolerated",
           status == 200 and len(ADMIN_CALLS) == n)
+
+    # 10. admin failure -> 500 WITHOUT marking done; Stripe retry then
+    #     provisions exactly once (regression: old code swallowed the retry)
+    FAIL_NEXT.append("/admin/customers")
+    ev8 = {"id": "evt_8", "type": "customer.subscription.created",
+           "data": {"object": subscription("sub_8", "cus_8",
+                                            "price_starter_1")}}
+    status, _ = post_webhook(hook_port, ev8, secret)
+    check("admin failure -> 500", status == 500)
+    check("nothing linked after failure", hook.get_link("cus_8") is None)
+    # simulate Stripe's delayed retry (first retry comes well after the
+    # 10-minute stale window) by aging the abandoned claim
+    with hook.db() as conn:
+        conn.execute("UPDATE events SET received_at = ? WHERE event_id = ?",
+                     (int(time.time()) - hook.STALE_AFTER - 1, "evt_8"))
+    n = len(ADMIN_CALLS)
+    status, _ = post_webhook(hook_port, ev8, secret)  # Stripe retry
+    check("retry -> 200", status == 200)
+    check("retry provisions once",
+          len(ADMIN_CALLS) == n + 1
+          and hook.get_link("cus_8")["tier"] == "starter")
+    n = len(ADMIN_CALLS)
+    status, body = post_webhook(hook_port, ev8, secret)  # third delivery
+    check("third delivery is duplicate",
+          status == 200 and body.get("duplicate") is True
+          and len(ADMIN_CALLS) == n)
+
+    # 11. stale 'processing' claim (crashed worker) -> reclaimed, processed
+    with hook.db() as conn:
+        conn.execute(
+            "INSERT INTO events (event_id, type, status, received_at)"
+            " VALUES ('evt_9', 'customer.subscription.created',"
+            " 'processing', ?)",
+            (int(time.time()) - hook.STALE_AFTER - 10,))
+    ev9 = {"id": "evt_9", "type": "customer.subscription.created",
+           "data": {"object": subscription("sub_9", "cus_9",
+                                            "price_pro_1")}}
+    n = len(ADMIN_CALLS)
+    status, _ = post_webhook(hook_port, ev9, secret)
+    check("stale claim reprocessed",
+          status == 200 and len(ADMIN_CALLS) == n + 1
+          and hook.get_link("cus_9")["tier"] == "pro")
+
+    # 12. fresh 'processing' claim (concurrent worker) -> acked, not reprocessed
+    with hook.db() as conn:
+        conn.execute(
+            "INSERT INTO events (event_id, type, status, received_at)"
+            " VALUES ('evt_10', 'customer.subscription.created',"
+            " 'processing', ?)",
+            (int(time.time()),))
+    ev10 = {"id": "evt_10", "type": "customer.subscription.created",
+            "data": {"object": subscription("sub_10", "cus_10",
+                                             "price_starter_1")}}
+    n = len(ADMIN_CALLS)
+    status, body = post_webhook(hook_port, ev10, secret)
+    check("in-progress acked without reprocessing",
+          status == 200 and body.get("in_progress") is True
+          and len(ADMIN_CALLS) == n
+          and hook.get_link("cus_10") is None)
 
     print(f"ALL {len(passed)} TESTS PASSED")
     srv.shutdown()

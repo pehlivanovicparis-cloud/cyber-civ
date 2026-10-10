@@ -10,6 +10,9 @@ sees a card number.
 1. **Stripe Dashboard → Products**: create recurring products —
    Starter $29/mo, Pro $99/mo. Copy each **Price ID** (`price_…`).
    Enterprise stays manual (custom quotes, invoicing).
+   Done 2026-09-28 (live account "cyber civ"):
+   - Starter: `price_1UKhCUJfJcUBPvaAw6wFWkBz`
+   - Pro: `price_1UKhDAJfJcUBPvaAfnukFPsa`
 2. **Developers → Webhooks → Add endpoint**: your public URL +
    `/stripe-webhook`, subscribed to `customer.subscription.created`,
    `customer.subscription.updated`, `customer.subscription.deleted`.
@@ -45,8 +48,9 @@ deliveries are idempotent via the event log in `webhook.db`.
 ## Tests
 
 ```bash
-python3 test_stripe_webhook.py   # 17 tests: signature, idempotency,
-                                # provisioning, upgrades, cancellation
+python3 test_stripe_webhook.py   # 24 tests: signature, idempotency,
+                                # provisioning, upgrades, cancellation,
+                                # retry-after-failure, stale-claim reclaim
 ```
 
 ## Suggested tiers

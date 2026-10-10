@@ -164,9 +164,9 @@ Features:
   * civilization identity fingerprints: a stable DNA-based ID (survives
     rebirth) plus a behavioral profile that drifts over time
 
-Phase 4 adds GOV, a sovereign regulator civilization: directive powers
+Phase 4 adds Archon, a sovereign regulator civilization: directive powers
 (mandate / sanction / veto) that cost intent to wield, a governance world
-with its own event flavors, and election cycles that can vote GOV out of
+with its own event flavors, and election cycles that can vote Archon out of
 power.
 
 No network access, no wallets, no external services — just JSON on disk.
@@ -198,7 +198,7 @@ DEFAULT_HISTORY_FILE = Path("memory/history.jsonl")
 DEFAULT_GENERATIONS = 20
 FINGERPRINT_ROSTER_FILE = Path("memory/fingerprints.json")
 
-SWARMS = ("RED", "BLUE", "GRAY", "GOV")
+SWARMS = ("Ares", "Pax", "Vex", "Archon")
 WORLDS = ("crypto", "banking", "network", "governance")
 COUNTRIES = ("US", "CN", "NG", "DE")
 
@@ -212,22 +212,22 @@ COLLAPSE_HIGH = 0.98
 COLLAPSE_LOW = 0.02
 RECENT_INTENT_WINDOW = 12
 
-# -- governance (GOV sovereign) -------------------------------------------
+# -- governance (Archon sovereign) -------------------------------------------
 GOVERNANCE_FLAVORS = ("regulation", "election", "sanction", "treaty")
-MANDATE_INTENT_ABOVE = 0.70   # GOV orders STABILIZE on overheated civs
+MANDATE_INTENT_ABOVE = 0.70   # Archon orders STABILIZE on overheated civs
 SANCTION_WIN_RATE_ABOVE = 0.55
 VETO_WIN_RATE_ABOVE = 0.55
 VETO_COOLDOWN_GENS = 10
-DIRECTIVE_COST = 0.02         # intent GOV spends per directive issued
+DIRECTIVE_COST = 0.02         # intent Archon spends per directive issued
 ELECTION_EVERY = 25
 GOV_SUSPENSION_GENS = 10
 
 # Distinct starting personalities so fingerprints differ from generation 0.
 PERSONALITY = {
-    "RED": {"bias": 0.10, "learning_rate": 0.07},   # pessimist, fast adapter
-    "BLUE": {"bias": -0.10, "learning_rate": 0.04}, # optimist, slow adapter
-    "GRAY": {"bias": 0.0, "learning_rate": 0.06},   # pragmatist, medium adapter
-    "GOV": {"bias": 0.05, "learning_rate": 0.05},   # regulator: sees risk, medium adapter
+    "Ares": {"bias": 0.10, "learning_rate": 0.07},   # pessimist, fast adapter
+    "Pax": {"bias": -0.10, "learning_rate": 0.04}, # optimist, slow adapter
+    "Vex": {"bias": 0.0, "learning_rate": 0.06},   # pragmatist, medium adapter
+    "Archon": {"bias": 0.05, "learning_rate": 0.05},   # regulator: sees risk, medium adapter
 }
 
 ACTIONS = ("EXPAND", "STABILIZE", "EXPLORE")
@@ -257,8 +257,8 @@ class Civilization:
     def perceive(self, event: Event, rng: random.Random) -&gt; float:
         noise = PERCEPTION_NOISE
         if event.world == "governance":
-            # Home turf: GOV reads regulation clearly; everyone else guesses.
-            noise *= 0.5 if self.name == "GOV" else 1.5
+            # Home turf: Archon reads regulation clearly; everyone else guesses.
+            noise *= 0.5 if self.name == "Archon" else 1.5
         return max(0.0, min(1.0, event.risk + self.bias + rng.uniform(-noise, noise)))
 
     def decide_action(self) -&gt; str:
@@ -426,20 +426,20 @@ UPSET_TEMPERATURE = 1.0
 
 
 # ---------------------------------------------------------------------------
-# Governance: GOV, the sovereign regulator
+# Governance: Archon, the sovereign regulator
 # ---------------------------------------------------------------------------
 
 def gov_suspended(state: dict[str, Any]) -&gt; bool:
-    """GOV can issue directives / vetoes only while it holds power."""
+    """Archon can issue directives / vetoes only while it holds power."""
     return state["generation"] &lt; state.get("gov_suspended_until", 0)
 
 
 def issue_directive(state: dict[str, Any], civs: list[Civilization]) -&gt; dict[str, Any] | None:
-    """GOV issues at most one directive per generation. Power costs intent."""
+    """Archon issues at most one directive per generation. Power costs intent."""
     if gov_suspended(state):
         return None
-    gov = next(c for c in civs if c.name == "GOV")
-    rivals = [c for c in civs if c.name != "GOV"]
+    gov = next(c for c in civs if c.name == "Archon")
+    rivals = [c for c in civs if c.name != "Archon"]
 
     def spend() -&gt; None:
         gov.intent = max(0.0, gov.intent - DIRECTIVE_COST)
@@ -465,19 +465,19 @@ def issue_directive(state: dict[str, Any], civs: list[Civilization]) -&gt; dict[
 
 
 def maybe_election(state: dict[str, Any], civs: list[Civilization]) -&gt; dict[str, Any] | None:
-    """Every ELECTION_EVERY generations the swarms vote on GOV's legitimacy.
+    """Every ELECTION_EVERY generations the swarms vote on Archon's legitimacy.
 
-    A civ votes to oust when GOV is weak (win rate &lt; 0.40) or has it
-    sanctioned. A majority suspends GOV's powers for GOV_SUSPENSION_GENS.
+    A civ votes to oust when Archon is weak (win rate &lt; 0.40) or has it
+    sanctioned. A majority suspends Archon's powers for GOV_SUSPENSION_GENS.
     """
     gen = state["generation"]
     if gen == 0 or gen % ELECTION_EVERY != 0:
         return None
-    gov = next(c for c in civs if c.name == "GOV")
+    gov = next(c for c in civs if c.name == "Archon")
     sanctions = state.get("sanctions", {})
     votes_oust = sum(
         1 for c in civs
-        if c.name != "GOV" and (gov.win_rate() &lt; 0.40 or c.name in sanctions)
+        if c.name != "Archon" and (gov.win_rate() &lt; 0.40 or c.name in sanctions)
     )
     ousted = votes_oust &gt;= 2
     if ousted:
@@ -493,7 +493,7 @@ def compete(a: Civilization, b: Civilization, state: dict[str, Any],
     A pure "higher intent always wins" rule lets fixed personality drift
     (bias x learning rate) decide nearly every match, so one swarm dominates
     permanently. The softmax keeps intent meaningful while letting win rates
-    converge across swarms. GOV's sanctions and veto can then overturn results.
+    converge across swarms. Archon's sanctions and veto can then overturn results.
     """
     diff = (a.intent - b.intent) / UPSET_TEMPERATURE
     p_a_wins = 1.0 / (1.0 + math.exp(-diff))
@@ -506,8 +506,8 @@ def compete(a: Civilization, b: Civilization, state: dict[str, Any],
                            "original_winner": winner.name, "new_winner": loser.name})
         winner, loser = loser, winner
 
-    # GOV vetoes runaway leaders (needs a track record first).
-    if (winner.name != "GOV" and winner.total_matches &gt;= 5
+    # Archon vetoes runaway leaders (needs a track record first).
+    if (winner.name != "Archon" and winner.total_matches &gt;= 5
             and winner.win_rate() &gt; VETO_WIN_RATE_ABOVE
             and state.get("veto_cooldown", 0) &lt;= 0
             and not gov_suspended(state)):
@@ -575,7 +575,7 @@ def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
 
     event = generate_event(rng)
 
-    # Last generation's GOV mandates override this generation's decisions.
+    # Last generation's Archon mandates override this generation's decisions.
     gov_events: list[dict[str, Any]] = []
     pending = state.pop("pending_mandates", {})
     for target_name, forced in pending.items():
@@ -593,7 +593,7 @@ def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
         actions[civ.name] = action
         _push_recent(civ)
 
-    # GOV issues at most one new directive per generation.
+    # Archon issues at most one new directive per generation.
     directive = issue_directive(state, civs)
     if directive:
         gov_events.append(directive)
@@ -632,21 +632,21 @@ def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
     for ge in gov_events:
         t = ge["type"]
         if t == "MANDATE":
-            print(f"🏛️ GOV MANDATE: {ge['target']} ordered to {ge['action']} next generation")
+            print(f"🏛️ Archon MANDATE: {ge['target']} ordered to {ge['action']} next generation")
         elif t == "MANDATE_APPLIED":
             print(f"🏛️ mandate enforced: {ge['target']} acts {ge['action']}")
         elif t == "SANCTION":
-            print(f"🏛️ GOV SANCTION: {ge['target']} win odds halved for {ge['generations']} generations")
+            print(f"🏛️ Archon SANCTION: {ge['target']} win odds halved for {ge['generations']} generations")
         elif t == "SANCTION_FLIP":
             print(f"🏛️ sanction flips it: {ge['original_winner']} denied → {ge['new_winner']} takes the win")
         elif t == "VETO":
-            print(f"🏛️ GOV VETO: {ge['original_winner']}'s win overturned → {ge['new_winner']} wins")
+            print(f"🏛️ Archon VETO: {ge['original_winner']}'s win overturned → {ge['new_winner']} wins")
     if election:
         if election["ousted"]:
-            print(f"🗳️ ELECTION: GOV voted OUT ({election['votes_oust']}/3), "
+            print(f"🗳️ ELECTION: Archon voted OUT ({election['votes_oust']}/3), "
                   f"suspended {GOV_SUSPENSION_GENS} generations")
         else:
-            print(f"🗳️ ELECTION: GOV retains power ({election['votes_oust']}/3 votes to oust)")
+            print(f"🗳️ ELECTION: Archon retains power ({election['votes_oust']}/3 votes to oust)")
     print("-" * 64)
 
     save_state(state_file, state)
@@ -705,9 +705,9 @@ def print_roster(state_file: Path, roster_file: Path) -&gt; None:
     roster_file.parent.mkdir(parents=True, exist_ok=True)
     roster_file.write_text(json.dumps(roster, indent=2) + "\n", encoding="utf-8")
     if gov_suspended(state):
-        print(f"🏛️ GOV status: SUSPENDED until generation {state['gov_suspended_until']}")
+        print(f"🏛️ Archon status: SUSPENDED until generation {state['gov_suspended_until']}")
     else:
-        print("🏛️ GOV status: IN POWER")
+        print("🏛️ Archon status: IN POWER")
     print(f"\n(saved to {roster_file})")
 
 
@@ -766,7 +766,7 @@ if __name__ == "__main__":
 "use strict";
 /* ============ config (mirrors cyber_civ.py) ============ */
 const CFG = {
-  SWARMS:["RED","BLUE","GRAY","GOV"],
+  SWARMS:["Ares","Pax","Vex","Archon"],
   WORLDS:["crypto","banking","network","governance"],
   COUNTRIES:["US","CN","NG","DE"],
   FLAVORS:["regulation","election","sanction","treaty"],
@@ -774,10 +774,10 @@ const CFG = {
   NOISE:0.10, ALLY_T:0.08, COLLAPSE_HI:0.98, COLLAPSE_LO:0.02,
   PRESSURE_LR:0.05, WINDOW:12, TEMP:1.0,
   PERSONALITY:{
-    RED:{bias:0.10,lr:0.07}, BLUE:{bias:-0.10,lr:0.04},
-    GRAY:{bias:0.0,lr:0.06},  GOV:{bias:0.05,lr:0.05}
+    Ares:{bias:0.10,lr:0.07}, Pax:{bias:-0.10,lr:0.04},
+    Vex:{bias:0.0,lr:0.06},  Archon:{bias:0.05,lr:0.05}
   },
-  COLORS:{RED:"#ff5d5d",BLUE:"#5aa9ff",GRAY:"#9aa4b8",GOV:"#ffd166"},
+  COLORS:{Ares:"#ff5d5d",Pax:"#5aa9ff",Vex:"#9aa4b8",Archon:"#ffd166"},
   MANDATE_ABOVE:0.70, SANCTION_WR:0.55, VETO_WR:0.55, VETO_CD:10,
   DIRECTIVE_COST:0.02, ELECTION_EVERY:25, SUSPEND_GENS:10
 };
@@ -874,7 +874,7 @@ function newSim(seed){
 }
 function perceive(c,ev,R){
   let n=CFG.NOISE;
-  if(ev.world==="governance") n*=(c.name==="GOV"?0.5:1.5);
+  if(ev.world==="governance") n*=(c.name==="Archon"?0.5:1.5);
   return Math.max(0,Math.min(1, ev.risk+c.bias+R.float(-n,n)));
 }
 function decide(c,pr){
@@ -886,8 +886,8 @@ function decide(c,pr){
 function govActive(S){ return S.gen>=S.govSuspendedUntil; }
 function issueDirective(S){
   if(!govActive(S)) return null;
-  const gov=S.civs.find(c=>c.name==="GOV");
-  const rivals=S.civs.filter(c=>c.name!=="GOV");
+  const gov=S.civs.find(c=>c.name==="Archon");
+  const rivals=S.civs.filter(c=>c.name!=="Archon");
   const spend=()=>{ gov.intent=Math.max(0,gov.intent-CFG.DIRECTIVE_COST); };
   const hot=rivals.filter(c=>c.intent>CFG.MANDATE_ABOVE);
   if(hot.length){
@@ -929,7 +929,7 @@ function compete(S,a,b,govEvents){
     govEvents.push({type:"SANCTION_FLIP",original_winner:winner.name,new_winner:loser.name});
     const t=winner; winner=loser; loser=t;
   }
-  if(winner.name!=="GOV"&&winner.totalMatches>=5&&winRate(winner)>CFG.VETO_WR
+  if(winner.name!=="Archon"&&winner.totalMatches>=5&&winRate(winner)>CFG.VETO_WR
      &&S.vetoCooldown<=0&&govActive(S)){
     govEvents.push({type:"VETO",original_winner:winner.name,new_winner:loser.name});
     const t=winner; winner=loser; loser=t;
@@ -946,8 +946,8 @@ function compete(S,a,b,govEvents){
 function maybeElection(S){
   const g=S.gen;
   if(g===0||g%CFG.ELECTION_EVERY!==0) return null;
-  const gov=S.civs.find(c=>c.name==="GOV");
-  const votes=S.civs.filter(c=>c.name!=="GOV"&&(winRate(gov)<0.40||S.sanctions[c.name])).length;
+  const gov=S.civs.find(c=>c.name==="Archon");
+  const votes=S.civs.filter(c=>c.name!=="Archon"&&(winRate(gov)<0.40||S.sanctions[c.name])).length;
   const ousted=votes>=2;
   if(ousted) S.govSuspendedUntil=g+CFG.SUSPEND_GENS;
   return {ousted,votes_oust:votes,gov_win_rate:Math.round(winRate(gov)*1000)/1000};
@@ -1016,7 +1016,7 @@ function buildResults(S){
       dominant_action:dominantAction(c),
       allies:[...c.allies],
       sanctioned:!!S.sanctions[c.name],
-      gov_status:c.name==="GOV"?(govActive(S)?"IN_POWER":"SUSPENDED"):"N/A"
+      gov_status:c.name==="Archon"?(govActive(S)?"IN_POWER":"SUSPENDED"):"N/A"
     })),
     recent_governance:S.recentGov
   };
@@ -1031,7 +1031,7 @@ function renderCards(){
   for(const c of S.civs){
     const col=CFG.COLORS[c.name], badges=[];
     if(S.sanctions[c.name]) badges.push(badge("⚠️ sanctioned"));
-    if(c.name==="GOV") badges.push(badge(govActive(S)?"🏛️ in power":"🗳️ suspended"));
+    if(c.name==="Archon") badges.push(badge(govActive(S)?"🏛️ in power":"🗳️ suspended"));
     if(c.allies.size) badges.push(badge("🤝 "+[...c.allies].join(", ")));
     html+='<div class="card" style="--accent:'+col+'">'
       +'<div class="chead"><span class="cname">'+c.name+'</span><span class="fp">'+c.fp+'</span></div>'
@@ -1061,16 +1061,16 @@ function renderStep(r){
   feed('<span class="dim">[gen '+r.gen+']</span> 🏆 '+r.match[0]+' vs '+r.match[1]
     +' → <b>'+r.winner+'</b> wins');
   for(const ge of r.govEvents){
-    if(ge.type==="MANDATE") feed('🏛️ GOV MANDATE: '+ge.target+' ordered to '+ge.action,'gov');
+    if(ge.type==="MANDATE") feed('🏛️ Archon MANDATE: '+ge.target+' ordered to '+ge.action,'gov');
     else if(ge.type==="MANDATE_APPLIED") feed('🏛️ mandate enforced: '+ge.target+' acts '+ge.action,'gov');
-    else if(ge.type==="SANCTION") feed('🏛️ GOV SANCTION: '+ge.target+' win odds halved','gov');
+    else if(ge.type==="SANCTION") feed('🏛️ Archon SANCTION: '+ge.target+' win odds halved','gov');
     else if(ge.type==="SANCTION_FLIP") feed('🏛️ sanction flips it: '+ge.original_winner+' denied → '+ge.new_winner+' wins','gov');
-    else if(ge.type==="VETO") feed('🏛️ GOV VETO: '+ge.original_winner+' overturned → '+ge.new_winner+' wins','gov');
+    else if(ge.type==="VETO") feed('🏛️ Archon VETO: '+ge.original_winner+' overturned → '+ge.new_winner+' wins','gov');
   }
   if(r.collapse) feed('💥 '+r.collapse+': world reset, intents reborn');
   if(r.election) feed(r.election.ousted
-    ? '🗳️ ELECTION: GOV voted OUT ('+r.election.votes_oust+'/3) — suspended '+CFG.SUSPEND_GENS+' gens'
-    : '🗳️ ELECTION: GOV retains power ('+r.election.votes_oust+'/3 to oust)');
+    ? '🗳️ ELECTION: Archon voted OUT ('+r.election.votes_oust+'/3) — suspended '+CFG.SUSPEND_GENS+' gens'
+    : '🗳️ ELECTION: Archon retains power ('+r.election.votes_oust+'/3 to oust)');
   renderCards();
   drawChart();
   renderJson();
