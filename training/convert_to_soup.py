@@ -65,6 +65,7 @@ def main() -> None:
     seen: set[str] = set()
     records: list[tuple[str, dict]] = []
     skipped_scripted = 0
+    discarded_corrupt = 0
     for src in sources:
         if not src.is_dir():
             continue
@@ -78,6 +79,9 @@ def main() -> None:
                 try:
                     rec = json.loads(line)
                 except json.JSONDecodeError:
+                    # A torn line (e.g. SIGTERM mid-write at a block
+                    # toggle) — counted, never silently dropped.
+                    discarded_corrupt += 1
                     continue
                 # Training purity: scripted fallbacks carry no reasoning
                 # worth teaching — only real LLM decisions make the dataset.
@@ -129,6 +133,7 @@ def main() -> None:
     llm = sum(1 for _, r in records if r.get("reason"))
     print(f"records kept (LLM only, deduped): {len(records)}  | with reasoning: {llm}")
     print(f"records discarded (scripted): {skipped_scripted}")
+    print(f"records discarded (corrupt/torn): {discarded_corrupt}")
     print(f"wrote {OUT / 'train.jsonl'}")
     print(f"wrote {OUT / 'train_chat.jsonl'}")
     log = OUT / "conversion_log.jsonl"
@@ -137,14 +142,15 @@ def main() -> None:
         "kept": len(records),
         "with_reasoning": llm,
         "discarded_scripted": skipped_scripted,
+        "discarded_corrupt": discarded_corrupt,
         "sources": [str(s) for s in sources],
     }
     with open(log, "a") as fh:
         fh.write(json.dumps(entry) + "\n")
     print(f"logged conversion -> {log}")
-    if skipped_scripted:
-        print(f"DISCARD WARNING: {skipped_scripted} scripted records rejected - "
-              "if this climbs above zero per block, a harvest is degrading.")
+    if skipped_scripted or discarded_corrupt:
+        print(f"DISCARD WARNING: {skipped_scripted} scripted + {discarded_corrupt} corrupt "
+              "records rejected - if either climbs per block, something is degrading.")
 
 
 if __name__ == "__main__":
