@@ -29,7 +29,9 @@ Configuration (environment):
     CYBER_CIV_API_KEY    API key (required, unless --dry-run)
     CYBER_CIV_BASE_URL   default https://api.openai.com/v1
     CYBER_CIV_MODEL      default gpt-4o-mini
-    CYBER_CIV_TIMEOUT    seconds, default 25
+    CYBER_CIV_TIMEOUT    seconds, default 120 (raised from 25 on 2026-10-11:
+                         at 25s local models timed out into scripted fallback —
+                         3B hit 60% LLM decisions, 8B 0%; at 300s the 8B hit 93%)
     CYBER_CIV_TEMPERATURE default 0.7
 
 Usage:
@@ -76,7 +78,7 @@ def config_from_env(args: argparse.Namespace) -> LLMConfig:
         base_url=(args.base_url or os.environ.get("CYBER_CIV_BASE_URL",
                   "https://api.openai.com/v1")).rstrip("/"),
         model=args.model or os.environ.get("CYBER_CIV_MODEL", "gpt-4o-mini"),
-        timeout=float(os.environ.get("CYBER_CIV_TIMEOUT", "25")),
+        timeout=float(os.environ.get("CYBER_CIV_TIMEOUT", "120")),
         temperature=float(os.environ.get("CYBER_CIV_TEMPERATURE", "0.7")),
         dry_run=args.dry_run,
         max_calls=args.max_calls,
