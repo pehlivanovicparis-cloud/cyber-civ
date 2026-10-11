@@ -49,13 +49,13 @@ case "$cur" in
   3b)
     systemctl stop civ-harvest
     unload_all
-    systemctl start civ-harvest8b
+    systemctl start --no-block civ-harvest8b
     echo "harvest toggle: 3b -> 8b"
     ;;
   8b)
     systemctl stop civ-harvest8b
     unload_all
-    systemctl start civ-harvest
+    systemctl start --no-block civ-harvest
     echo "harvest toggle: 8b -> 3b"
     ;;
   *)
@@ -66,21 +66,25 @@ case "$cur" in
     # If BOTH sides are failed, the backend itself is broken (corrupt
     # model, bad change): stop visibly instead of ping-ponging
     # between two failed units and writing partial data forever.
+    # RECOVERY (manual): systemctl reset-failed civ-harvest
+    # civ-harvest8b, fix the backend, then systemctl start
+    # harvest-toggle.service. The watchdog cron also reports this
+    # state to Paris, so it shouldn't sit unseen overnight.
     if systemctl is-failed --quiet civ-harvest \
        && systemctl is-failed --quiet civ-harvest8b; then
       echo "harvest toggle: BOTH sides failed - harvest stopped, needs a human" >&2
       logger -p user.err "harvest toggle: BOTH sides failed - harvest stopped, needs a human"
     elif systemctl is-failed --quiet civ-harvest; then
       unload_all
-      systemctl start civ-harvest8b
+      systemctl start --no-block civ-harvest8b
       echo "harvest toggle: none (3b failed) -> 8b"
     elif systemctl is-failed --quiet civ-harvest8b; then
       unload_all
-      systemctl start civ-harvest
+      systemctl start --no-block civ-harvest
       echo "harvest toggle: none (8b failed) -> 3b"
     else
       unload_all
-      systemctl start civ-harvest
+      systemctl start --no-block civ-harvest
       echo "harvest toggle: none -> 3b"
     fi
     ;;
