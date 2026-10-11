@@ -70,6 +70,8 @@ class LLMConfig:
     max_calls: int = 0
     tools: bool = False    # Phase B: allow tool calls mid-decision
     memory: bool = True    # Phase A: retrieve past generations as context
+    strict: bool = False   # harvest mode: halt on repeated LLM failure
+                           # instead of silently falling back to scripted
 
 
 def config_from_env(args: argparse.Namespace) -> LLMConfig:
@@ -84,6 +86,7 @@ def config_from_env(args: argparse.Namespace) -> LLMConfig:
         max_calls=args.max_calls,
         tools=args.tools,
         memory=not args.no_memory,
+        strict=args.strict,
     )
 
 
@@ -91,6 +94,7 @@ def config_from_env(args: argparse.Namespace) -> LLMConfig:
 _LLM: LLMConfig | None = None
 _CALLS = 0
 _FALLBACKS = 0
+_CONSEC_FAIL = 0   # consecutive LLM failures — strict mode halts at 3
 # Per-civilization LLM status for this run: name -> {"llm": int, "scripted": int,
 # "last": "LLM" | "scripted" | "-"}. Civ objects are rebuilt every generation,
 # so the status lives here, not on the instances.
@@ -426,6 +430,7 @@ class LLMCivilization(core.Civilization):
         self.mode_tag: str = ""  # " [LLM]" or " [scripted]", shown on action lines
 
     def perceive(self, event: "core.Event", rng) -> float:
+        global _CONSEC_FAIL
         cfg = _LLM
         assert cfg is not None
         if cfg.dry_run:
@@ -463,13 +468,19 @@ class LLMCivilization(core.Civilization):
             self._llm_reason = reason
             tgt = f"→{self._llm_target}" if self._llm_target else ""
             print(f"💬 {self.name}: \"{reason}\" (risk {risk:.2f} → {self._llm_action}{tgt})")
+            _CONSEC_FAIL = 0
             self.mode_tag = " [LLM]"
             _record_status(self.name, "LLM")
             return risk
         except Exception as e:
             global _FALLBACKS
             _FALLBACKS += 1
+            _CONSEC_FAIL += 1
             print(f"⚠️ {self.name} LLM failed ({e}); using scripted fallback.")
+            if _LLM is not None and _LLM.strict and _CONSEC_FAIL >= 3:
+                print("🛑 STRICT: 3 consecutive LLM failures — halting "
+                      "rather than generating scripted data.")
+                raise SystemExit(3)
             self._llm_action = None
             self._llm_target = None
             self._llm_reason = ""
@@ -491,6 +502,7 @@ _ORIGINAL_ISSUE_DIRECTIVE = core.issue_directive
 
 def llm_issue_directive(state: dict, civs: list) -> dict | None:
     """Archon's directive, proposed by its LLM persona, validated by core rules."""
+    global _CONSEC_FAIL
     cfg = _LLM
     assert cfg is not None
     if core.gov_suspended(state):
@@ -523,11 +535,17 @@ def llm_issue_directive(state: dict, civs: list) -> dict | None:
         target = str(data.get("target", "")).upper()
         reason = str(data.get("reason", ""))[:80]
         print(f"💬 Archon directive proposal: {kind} {target} — \"{reason}\"")
+        _CONSEC_FAIL = 0
         _record_status("Archon", "LLM")
     except Exception as e:
         global _FALLBACKS
         _FALLBACKS += 1
+        _CONSEC_FAIL += 1
         print(f"⚠️ Archon LLM failed ({e}); using scripted directive.")
+        if _LLM is not None and _LLM.strict and _CONSEC_FAIL >= 3:
+            print("🛑 STRICT: 3 consecutive LLM failures — halting "
+                  "rather than generating scripted data.")
+            raise SystemExit(3)
         _record_status("Archon", "scripted")
         return _ORIGINAL_ISSUE_DIRECTIVE(state, civs)
 
@@ -572,6 +590,9 @@ def parse_args(argv=None) -> argparse.Namespace:
                    help="API call budget (0 = unlimited)")
     p.add_argument("--tools", action="store_true",
                    help="let civilizations call read-only tools mid-decision (Phase B)")
+    p.add_argument("--strict", action="store_true",
+                   help="halt the run after 3 consecutive LLM failures instead of "
+                        "falling back to scripted play (for data harvests)")
     p.add_argument("--no-memory", action="store_true",
                    help="disable RAG-lite memory retrieval (Phase A)")
     p.add_argument("--dry-run", action="store_true",

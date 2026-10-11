@@ -17,6 +17,7 @@ from __future__ import annotations
 import ast
 import json
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -63,6 +64,7 @@ def main() -> None:
     ]
     seen: set[str] = set()
     records: list[tuple[str, dict]] = []
+    skipped_scripted = 0
     for src in sources:
         if not src.is_dir():
             continue
@@ -74,9 +76,15 @@ def main() -> None:
                     continue
                 seen.add(line)
                 try:
-                    records.append((civ, json.loads(line)))
+                    rec = json.loads(line)
                 except json.JSONDecodeError:
                     continue
+                # Training purity: scripted fallbacks carry no reasoning
+                # worth teaching — only real LLM decisions make the dataset.
+                if rec.get("mode") != "[LLM]":
+                    skipped_scripted += 1
+                    continue
+                records.append((civ, rec))
 
     personas = load_personas()
     OUT.mkdir(parents=True, exist_ok=True)
@@ -118,10 +126,25 @@ def main() -> None:
     (OUT / "train_chat.jsonl").write_text(
         "\n".join(json.dumps(x) for x in chat) + "\n"
     )
-    llm = sum(1 for _, r in records if r.get("mode") == "[LLM]" and r.get("reason"))
-    print(f"records (deduped): {len(records)}  | with LLM reasoning: {llm}")
+    llm = sum(1 for _, r in records if r.get("reason"))
+    print(f"records kept (LLM only, deduped): {len(records)}  | with reasoning: {llm}")
+    print(f"records discarded (scripted): {skipped_scripted}")
     print(f"wrote {OUT / 'train.jsonl'}")
     print(f"wrote {OUT / 'train_chat.jsonl'}")
+    log = OUT / "conversion_log.jsonl"
+    entry = {
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "kept": len(records),
+        "with_reasoning": llm,
+        "discarded_scripted": skipped_scripted,
+        "sources": [str(s) for s in sources],
+    }
+    with open(log, "a") as fh:
+        fh.write(json.dumps(entry) + "\n")
+    print(f"logged conversion -> {log}")
+    if skipped_scripted:
+        print(f"DISCARD WARNING: {skipped_scripted} scripted records rejected - "
+              "if this climbs above zero per block, a harvest is degrading.")
 
 
 if __name__ == "__main__":
