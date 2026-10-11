@@ -63,13 +63,18 @@ case "$cur" in
     # flaky-model halt (exit 4 leaves the unit "failed"). Start the
     # side that did NOT fail — otherwise the flaky side would be
     # retried every toggle and the healthy side would never run.
+    # If BOTH sides are failed, the backend itself is broken (corrupt
+    # model, bad change): stop visibly instead of ping-ponging
+    # between two failed units and writing partial data forever.
     if systemctl is-failed --quiet civ-harvest \
-       && ! systemctl is-failed --quiet civ-harvest8b; then
+       && systemctl is-failed --quiet civ-harvest8b; then
+      echo "harvest toggle: BOTH sides failed - harvest stopped, needs a human" >&2
+      logger -p user.err "harvest toggle: BOTH sides failed - harvest stopped, needs a human"
+    elif systemctl is-failed --quiet civ-harvest; then
       unload_all
       systemctl start civ-harvest8b
       echo "harvest toggle: none (3b failed) -> 8b"
-    elif systemctl is-failed --quiet civ-harvest8b \
-       && ! systemctl is-failed --quiet civ-harvest; then
+    elif systemctl is-failed --quiet civ-harvest8b; then
       unload_all
       systemctl start civ-harvest
       echo "harvest toggle: none (8b failed) -> 3b"
