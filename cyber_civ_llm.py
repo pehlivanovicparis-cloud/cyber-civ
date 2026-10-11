@@ -95,6 +95,29 @@ _LLM: LLMConfig | None = None
 _CALLS = 0
 _FALLBACKS = 0
 _CONSEC_FAIL = 0   # consecutive LLM failures — strict mode halts at 3
+
+
+def _strict_halt_check() -> None:
+    """Harvest-mode guard, called after every LLM failure.
+
+    Two tripwires, because a harvest that degrades quietly is worse
+    than one that stops: 3 CONSECUTIVE failures means the backend is
+    dead; a >25% failure rate over a real sample (20+ calls, 5+
+    failures) means it's flaky — and a flaky model never trips the
+    consecutive counter, since a success keeps resetting it. Casual
+    runs never call this (strict is off), so the game stays forgiving
+    interactively.
+    """
+    if _LLM is None or not _LLM.strict:
+        return
+    if _CONSEC_FAIL >= 3:
+        print("🛑 STRICT: 3 consecutive LLM failures — halting "
+              "rather than generating scripted data.")
+        raise SystemExit(3)
+    if _CALLS >= 20 and _FALLBACKS >= 5 and _FALLBACKS / _CALLS > 0.25:
+        print(f"🛑 STRICT: LLM failure rate {_FALLBACKS}/{_CALLS} "
+              "exceeds 25% — halting rather than harvesting noise.")
+        raise SystemExit(4)
 # Per-civilization LLM status for this run: name -> {"llm": int, "scripted": int,
 # "last": "LLM" | "scripted" | "-"}. Civ objects are rebuilt every generation,
 # so the status lives here, not on the instances.
@@ -477,10 +500,7 @@ class LLMCivilization(core.Civilization):
             _FALLBACKS += 1
             _CONSEC_FAIL += 1
             print(f"⚠️ {self.name} LLM failed ({e}); using scripted fallback.")
-            if _LLM is not None and _LLM.strict and _CONSEC_FAIL >= 3:
-                print("🛑 STRICT: 3 consecutive LLM failures — halting "
-                      "rather than generating scripted data.")
-                raise SystemExit(3)
+            _strict_halt_check()
             self._llm_action = None
             self._llm_target = None
             self._llm_reason = ""
@@ -542,10 +562,7 @@ def llm_issue_directive(state: dict, civs: list) -> dict | None:
         _FALLBACKS += 1
         _CONSEC_FAIL += 1
         print(f"⚠️ Archon LLM failed ({e}); using scripted directive.")
-        if _LLM is not None and _LLM.strict and _CONSEC_FAIL >= 3:
-            print("🛑 STRICT: 3 consecutive LLM failures — halting "
-                  "rather than generating scripted data.")
-            raise SystemExit(3)
+        _strict_halt_check()
         _record_status("Archon", "scripted")
         return _ORIGINAL_ISSUE_DIRECTIVE(state, civs)
 
