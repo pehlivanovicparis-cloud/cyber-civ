@@ -1,0 +1,16 @@
+[Unit]
+Description=CYBER CIV Stripe webhook receiver
+After=network.target cyberciv-rental.service
+Requires=cyberciv-rental.service
+
+[Service]
+Type=simple
+User=cyberciv
+WorkingDirectory=/opt/cyberciv/rental
+EnvironmentFile=/opt/cyberciv/rental.env
+ExecStart=/usr/bin/python3 /opt/cyberciv/rental/stripe_webhook.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

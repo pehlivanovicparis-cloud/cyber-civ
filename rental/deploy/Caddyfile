@@ -1,0 +1,16 @@
+# Caddy reverse proxy for the CYBER CIV rental backend.
+# Replace api.example.com with your domain. Caddy handles TLS automatically.
+# Both backends bind 127.0.0.1 only; Caddy is the only public entry point.
+# `handle` blocks are mutually exclusive: only the first match runs.
+
+api.example.com {
+	# Stripe webhook receiver — only this path goes to :8766
+	handle /stripe-webhook {
+		reverse_proxy 127.0.0.1:8766
+	}
+
+	# Everything else: the rental API (chat completions, usage, admin)
+	handle {
+		reverse_proxy 127.0.0.1:8765
+	}
+}

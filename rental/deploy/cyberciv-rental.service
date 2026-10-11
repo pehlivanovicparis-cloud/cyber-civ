@@ -1,0 +1,15 @@
+[Unit]
+Description=CYBER CIV rental API server
+After=network.target
+
+[Service]
+Type=simple
+User=cyberciv
+WorkingDirectory=/opt/cyberciv/rental
+EnvironmentFile=/opt/cyberciv/rental.env
+ExecStart=/usr/bin/python3 /opt/cyberciv/rental/server.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
