@@ -46,6 +46,7 @@ import os
 import random
 import re
 import sys
+import threading
 import time
 import urllib.request
 import urllib.error
@@ -121,6 +122,71 @@ def _strict_halt_check() -> None:
 # Per-civilization LLM status for this run: name -> {"llm": int, "scripted": int,
 # "last": "LLM" | "scripted" | "-"}. Civ objects are rebuilt every generation,
 # so the status lives here, not on the instances.
+# ---------------------------------------------------------------------------
+# RSS sampler — in-place SIGKILL forensics.
+#
+# Spawns a daemon thread appending one JSONL line every 5 seconds with this
+# process's RSS (VmRSS from /proc/self/status), system MemAvailable, and PSI
+# memory pressure (avg10 some/full, when /proc/pressure/memory exists).
+# After a kill, the last lines before the cutoff discriminate the cases:
+#   RSS or pressure climbing toward a ceiling -> per-cgroup memory limit
+#   flat and healthy right up to the kill      -> platform-side / supervisor kill
+# Daemon thread dies with the process (SIGKILL ends it instantly); never
+# takes the harvest down on its own error.
+# One thing the sampler cannot tell you: who sent the signal. auditd is not
+# installed here, so sender attribution is unavailable in this environment.
+# ---------------------------------------------------------------------------
+def _start_rss_sampler(path: str, interval: float = 5.0) -> "threading.Thread":
+    def read_one() -> dict:
+        sample: dict = {"ts": time.time()}
+        try:
+            with open("/proc/self/status") as f:
+                for line in f:
+                    if line.startswith("VmRSS:"):
+                        sample["rss_kb"] = int(line.split()[1])
+                        break
+        except OSError:
+            pass
+        try:
+            with open("/proc/meminfo") as f:
+                for line in f:
+                    if line.startswith("MemAvailable:"):
+                        sample["mem_avail_kb"] = int(line.split()[1])
+                        break
+        except OSError:
+            pass
+        try:
+            with open("/proc/pressure/memory") as f:
+                for line in f:
+                    key = line.split()[0]  # "some" or "full"
+                    parts = dict(p.split("=", 1) for p in line.split()[1:])
+                    if "avg10" in parts:
+                        sample[f"psi_{key}_avg10"] = float(parts["avg10"])
+        except OSError:
+            pass
+        try:
+            st = globals().get("_STATE")
+            if st:
+                sample["gen"] = st.get("generation")
+        except Exception:
+            pass
+        return sample
+
+    def loop() -> None:
+        try:
+            with open(path, "a") as f:
+                while True:
+                    f.write(json.dumps(read_one()) + "\n")
+                    f.flush()
+                    time.sleep(interval)
+        except Exception as e:  # never take the harvest down
+            print(f"rss sampler stopped: {e}", file=sys.stderr)
+
+    t = threading.Thread(target=loop, name="rss-sampler", daemon=True)
+    t.start()
+    return t
+
+
 _CIV_STATUS: dict = {}
 
 
@@ -610,6 +676,10 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--strict", action="store_true",
                    help="halt the run after 3 consecutive LLM failures instead of "
                         "falling back to scripted play (for data harvests)")
+    p.add_argument("--rss-log", default=None, metavar="PATH",
+                   help="append a JSONL RSS/memory/pressure sample every 5s "
+                        "(forensics for in-place SIGKILL diagnosis; "
+                        "no effect unless set)")
     p.add_argument("--no-memory", action="store_true",
                    help="disable RAG-lite memory retrieval (Phase A)")
     p.add_argument("--dry-run", action="store_true",
@@ -665,6 +735,9 @@ def main(argv=None) -> int:
           f"(~${est_calls * 0.0006:.2f} at gpt-4o-mini rates)\n")
 
     memory_dir = None if _LLM.dry_run or not _LLM.memory else MEM_DIR
+
+    if args.rss_log:
+        _start_rss_sampler(args.rss_log)
 
     try:
         for _ in range(args.generations):

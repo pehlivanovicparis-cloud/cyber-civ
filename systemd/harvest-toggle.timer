@@ -1,0 +1,9 @@
+[Unit]
+Description=Flip the active Cyber CIV harvest every 2 hours
+
+[Timer]
+OnBootSec=2h
+OnUnitActiveSec=2h
+
+[Install]
+WantedBy=timers.target

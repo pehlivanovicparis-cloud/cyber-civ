@@ -1,0 +1,14 @@
+[Unit]
+Description=Ollama local LLM server
+After=network.target
+
+[Service]
+Type=simple
+Environment=HOME=/home/hatch
+Environment=OLLAMA_MAX_LOADED_MODELS=1
+ExecStart=/home/hatch/.local/bin/ollama serve
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

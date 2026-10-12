@@ -1,0 +1,7 @@
+[Unit]
+Description=Alternate Cyber CIV harvests (3B <-> 8B, one at a time)
+
+[Service]
+Type=oneshot
+TimeoutStartSec=infinity
+ExecStart=/bin/bash -c '/usr/bin/flock -w 30 /run/harvest-toggle.lock /bin/bash /home/hatch/workspace/cyber_civ/training/harvest-toggle.sh || logger "harvest toggle skipped: previous run still holding the lock"'

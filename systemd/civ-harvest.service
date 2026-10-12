@@ -1,0 +1,28 @@
+[Unit]
+Description=Cyber CIV data harvest (250 generations, llama3.2:3b)
+StartLimitIntervalSec=0
+Conflicts=civ-harvest8b.service
+After=civ-harvest8b.service
+OnFailure=harvest-toggle.service
+After=network.target ollama-serve.service
+Requires=ollama-serve.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/hatch/workspace/cyber_civ/training/harvest1
+Environment=CYBER_CIV_API_KEY=ollama
+Environment=CYBER_CIV_BASE_URL=http://localhost:11434/v1
+Environment=CYBER_CIV_MODEL=llama3.2:3b
+Environment=CYBER_CIV_TIMEOUT=300
+ExecStartPre=/bin/bash -c 'for i in $(seq 1 60); do curl -s -m 2 http://localhost:11434/api/tags >/dev/null && exit 0; sleep 5; done; echo "ollama never came up" >&2; exit 1'
+ExecStart=/usr/bin/python3 -u /home/hatch/workspace/cyber_civ/cyber_civ_llm.py --generations 250 --seed 11 --strict --rss-log /home/hatch/workspace/cyber_civ/training/harvest1/rss.log
+Restart=on-failure
+RestartSec=30
+RestartPreventExitStatus=4
+SuccessExitStatus=143 SIGTERM
+TimeoutStartSec=600
+StandardOutput=append:/home/hatch/workspace/cyber_civ/training/harvest1/run.log
+StandardError=append:/home/hatch/workspace/cyber_civ/training/harvest1/run.log
+
+[Install]
+WantedBy=multi-user.target
