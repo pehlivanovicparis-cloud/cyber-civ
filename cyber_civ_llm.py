@@ -138,7 +138,7 @@ def _strict_halt_check() -> None:
 # ---------------------------------------------------------------------------
 def _start_rss_sampler(path: str, interval: float = 5.0) -> "threading.Thread":
     def read_one() -> dict:
-        sample: dict = {"ts": time.time()}
+        sample: dict = {"ts": time.time(), "pid": os.getpid()}
         try:
             with open("/proc/self/status") as f:
                 for line in f:
