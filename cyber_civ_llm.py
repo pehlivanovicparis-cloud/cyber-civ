@@ -126,10 +126,13 @@ def _strict_halt_check() -> None:
 # RSS sampler — in-place SIGKILL forensics.
 #
 # Spawns a daemon thread appending one JSONL line every 5 seconds with this
-# process's RSS (VmRSS from /proc/self/status), system MemAvailable, and PSI
+# process's RSS (VmRSS from /proc/self/status), system MemAvailable, Dirty and
+# Writeback page-cache counters (same cadence, so a pre-death Dirty/Writeback
+# spike would implicate guest page-cache pressure — flat rules it out), and PSI
 # memory pressure (avg10 some/full, when /proc/pressure/memory exists).
 # After a kill, the last lines before the cutoff discriminate the cases:
 #   RSS or pressure climbing toward a ceiling -> per-cgroup memory limit
+#   Dirty/Writeback spiking in the last samples -> page-cache pressure (guest or host-counted)
 #   flat and healthy right up to the kill      -> platform-side / supervisor kill
 # Daemon thread dies with the process (SIGKILL ends it instantly); never
 # takes the harvest down on its own error.
@@ -152,6 +155,11 @@ def _start_rss_sampler(path: str, interval: float = 5.0) -> "threading.Thread":
                 for line in f:
                     if line.startswith("MemAvailable:"):
                         sample["mem_avail_kb"] = int(line.split()[1])
+                    elif line.startswith("Dirty:"):
+                        sample["dirty_kb"] = int(line.split()[1])
+                    elif line.startswith("Writeback:"):
+                        sample["writeback_kb"] = int(line.split()[1])
+                    if "mem_avail_kb" in sample and "dirty_kb" in sample and "writeback_kb" in sample:
                         break
         except OSError:
             pass
