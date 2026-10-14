@@ -2,8 +2,9 @@
 # Run from this directory:  soup train --config soup.yaml
 # Dataset: training/data/train.jsonl (Alpaca format), produced by
 # convert_to_soup.py from the sim's civ_memory decision records.
-# NOTE: 53 examples is a seed set. Grow it with longer LLM sim runs
-# (4 records per generation) and rerun the converter before training.
+# Converted 2026-10-14 02:21 EDT: 2,987 LLM-only examples kept
+# (108 scripted + 0 corrupt discarded). Both harvests at target.
+# Ready to train.
 # Training itself wants a GPU; this VM has none.
 base: meta-llama/Llama-3.1-8B-Instruct
 task: sft
