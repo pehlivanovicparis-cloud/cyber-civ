@@ -15,3 +15,7 @@ world_events.jsonl
 *.token
 credentials*
 secrets*
+
+# Raw harvest records — kept locally, never committed (regenerable from runs).
+training/harvest1/
+training/harvest8b/
