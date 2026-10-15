@@ -425,6 +425,9 @@ def _decision_prompt(civ: "core.Civilization", event: "core.Event",
         f"Your record: {civ.wins} wins / {civ.total_matches} matches.",
         f"World pressure: {state['world_pressure']:.2f} (high = the world punishes expansion).",
     ]
+    if event.headline:
+        src = f" (via {event.source})" if event.source else ""
+        lines.append(f"Real-world context: {event.headline}{src}")
     if civ.allies:
         lines.append(f"Your allies: {sorted(civ.allies)} (you never fight them).")
     if civ.name in state.get("sanctions", {}):

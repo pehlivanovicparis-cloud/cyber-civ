@@ -109,6 +109,8 @@ class Event:
     country: str
     risk: float
     flavor: str = ""   # governance-world event flavor (regulation, election, ...)
+    headline: str = "" # web-grounded: real-world news headline (from world-events feed)
+    source: str = ""   # provenance for the headline (outlet name)
 
 
 @dataclass
@@ -276,7 +278,50 @@ def append_history(path: Path, record: dict[str, Any]) -> None:
 # Simulation
 # ---------------------------------------------------------------------------
 
+def _feed_path() -> Path:
+    return Path(__file__).resolve().parent / "world_events.jsonl"
+
+
+def _pop_feed_event() -> "Event | None":
+    """Pop the next web-grounded world event off the feed file (FIFO).
+
+    The feed is maintained by a scheduled research job (see
+    training/WORLD_EVENTS_FEED.md). Returns None when the feed is missing,
+    empty, or malformed — the caller falls back to random generation.
+    """
+    path = _feed_path()
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return None
+    lines = [ln for ln in lines if ln.strip()]
+    if not lines:
+        return None
+    try:
+        first = json.loads(lines[0])
+        event = Event(
+            world=str(first["world"]),
+            country=str(first["country"]),
+            risk=max(0.0, min(1.0, float(first["risk"]))),
+            flavor=str(first.get("flavor", "")),
+            headline=str(first.get("headline", ""))[:200],
+            source=str(first.get("source", ""))[:80],
+        )
+    except (KeyError, ValueError, TypeError):
+        return None
+    # Consume it: rewrite the file without the first line.
+    try:
+        path.write_text("\n".join(lines[1:]) + ("\n" if len(lines) > 1 else ""),
+                        encoding="utf-8")
+    except OSError:
+        pass
+    return event
+
+
 def generate_event(rng: random.Random) -> Event:
+    fed = _pop_feed_event()
+    if fed is not None:
+        return fed
     world = rng.choice(WORLDS)
     flavor = rng.choice(GOVERNANCE_FLAVORS) if world == "governance" else ""
     return Event(world=world, country=rng.choice(COUNTRIES), risk=rng.random(), flavor=flavor)

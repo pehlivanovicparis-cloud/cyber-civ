@@ -3,6 +3,10 @@ memory/
 __pycache__/
 *.pyc
 
+# Web-grounded world-event feed — refreshed weekly by a scheduled research
+# job, never committed (stale news in git history is noise).
+world_events.jsonl
+
 # secrets — never commit
 .env
 .env.*
