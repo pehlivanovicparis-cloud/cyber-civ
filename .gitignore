@@ -19,3 +19,12 @@ secrets*
 # Raw harvest records — kept locally, never committed (regenerable from runs).
 training/harvest1/
 training/harvest8b/
+training/adapters/
+
+# Tooling caches / local envs / training output — never committed.
+.pytest_cache/
+.venv/
+venv/
+training/output/
+*.egg-info/
+.DS_Store

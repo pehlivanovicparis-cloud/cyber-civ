@@ -1,0 +1,17 @@
+# Cyber CIV — dependencies
+#
+# The entire codebase is Python STDLIB ONLY (cyber_civ.py, cyber_civ_llm.py,
+# rental/, training/convert_to_soup.py, adapter_check.py, verify_balance.py).
+# There are deliberately no third-party packages to install:
+#
+#     pip install -r requirements.txt   # succeeds as a no-op
+#
+# Requirements instead:
+#   * Python >= 3.10  (code uses `X | None` annotations; developed on 3.12)
+#   * For LLM mode only: any OpenAI-compatible chat-completions endpoint
+#     (e.g. a local Ollama server) — reached over HTTP via urllib, no SDK.
+#   * For the rental backend only: a Stripe account (HTTP API via urllib).
+#
+# If a third-party dependency is ever introduced, it MUST be added here
+# with an upper bound (e.g. `package>=1.2,<2`) in the same commit that
+# first imports it, so dependency changes are always reviewable.
