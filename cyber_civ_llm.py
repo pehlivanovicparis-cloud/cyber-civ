@@ -33,6 +33,9 @@ Configuration (environment):
                          at 25s local models timed out into scripted fallback —
                          3B hit 60% LLM decisions, 8B 0%; at 300s the 8B hit 93%)
     CYBER_CIV_TEMPERATURE default 0.7
+    CYBER_CIV_REQUIRE_ADAPTER  "1" = same as --require-adapter: fail loud
+                         before the run unless the fine-tuned LoRA adapter
+                         weights are present (see adapter_check.py)
 
 Usage:
     python3 cyber_civ_llm.py --generations 20 --seed 7
@@ -699,6 +702,15 @@ def parse_args(argv=None) -> argparse.Namespace:
                    help="one test API call, then exit")
     p.add_argument("--personas", action="store_true",
                    help="print the four persona prompts, then exit")
+    p.add_argument("--require-adapter", action="store_true",
+                   help="fail loud and exit before the run unless the "
+                        "fine-tuned LoRA adapter is READY (see "
+                        "adapter_check.py); also enabled by "
+                        "CYBER_CIV_REQUIRE_ADAPTER=1. Without this flag the "
+                        "adapter is never assumed or claimed.")
+    p.add_argument("--adapter-dir", default=None,
+                   help="adapter directory for --require-adapter "
+                        "(default: adapter_check.DEFAULT_ADAPTER_DIR)")
     return p.parse_args(argv)
 
 
@@ -712,6 +724,20 @@ def main(argv=None) -> int:
         return 0
 
     _LLM = config_from_env(args)
+
+    # Adapter readiness gate (opt-in, fail-loud): a run that requires the
+    # fine-tuned adapter must not silently proceed without its weights.
+    # Default runs never claim the tuned model and are unaffected.
+    if args.require_adapter or os.environ.get("CYBER_CIV_REQUIRE_ADAPTER") == "1":
+        import adapter_check
+        try:
+            status = adapter_check.require_adapter(
+                args.adapter_dir or adapter_check.DEFAULT_ADAPTER_DIR)
+        except adapter_check.AdapterNotReadyError as exc:
+            print(f"🛑 {exc}", file=sys.stderr)
+            return 2
+        print(f"✅ Fine-tuned adapter READY: {status.adapter_dir}")
+
     if not _LLM.dry_run and not _LLM.api_key and not args.check:
         print("CYBER_CIV_API_KEY is not set. Use --dry-run to preview prompts.",
               file=sys.stderr)
