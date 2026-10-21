@@ -1,0 +1,100 @@
+# Render blueprint for the Cyber CIV rental backend (repo: cyber-civ, rental/).
+# Pushed to the repo root 2026-10-21 — Render reads render.yaml from the repo
+# root, so the Dashboard -> New -> Blueprint click will find it here.
+#
+# Bind fix (applied in the same commit as this file): rental/server.py and
+# rental/stripe_webhook.py used to bind 127.0.0.1 only
+# (ThreadingHTTPServer(("127.0.0.1", PORT), ...)). On the old droplet plan
+# that was correct (Caddy was the public entry point). Render has no Caddy —
+# it routes traffic straight to the process, and it cannot reach a
+# loopback-only server. Both files now bind "0.0.0.0" in main().
+#
+# Architecture delta vs the droplet plan: systemd ran two processes behind one
+# Caddy domain. Render runs one process per web service, so this blueprint
+# creates TWO services. The Stripe webhook URL becomes the webhook service's
+# own URL (https://cyberciv-rental-webhook.onrender.com/stripe-webhook)
+# instead of a path on one shared domain. Both services keep their state in
+# SQLite, so each gets its own persistent disk (Render disks are a paid-plan
+# feature — on a free instance the databases reset on every redeploy).
+services:
+  - type: web
+    name: cyberciv-rental-api
+    runtime: python
+    branch: master
+    rootDir: rental
+    # Stdlib only — there is genuinely nothing to build or install.
+    buildCommand: echo "stdlib only - no build step"
+    # The code reads RENTAL_PORT (not $PORT); hand it Render's assigned port.
+    startCommand: RENTAL_PORT=$PORT python3 server.py
+    healthCheckPath: /healthz
+    autoDeploy: true
+    disk:
+      name: cyberciv-rental-data
+      mountPath: /var/data
+      sizeGB: 1 # rental.db (customers + usage) — tiny; 1 GB is ample
+    envVars:
+      - key: RENTAL_DB
+        value: /var/data/rental.db
+      # SECRET — generate with: openssl rand -hex 32. Same value goes in the
+      # webhook service below.
+      - key: RENTAL_ADMIN_TOKEN
+        sync: false
+      # SECRET — upstream LLM provider key (OpenAI-compatible), held
+      # server-side only.
+      - key: RENTAL_PROVIDER_KEY
+        sync: false
+      - key: RENTAL_PROVIDER_BASE_URL
+        value: https://api.openai.com/v1
+      - key: RENTAL_MODEL
+        value: gpt-4o-mini
+      - key: RENTAL_RATE_LIMIT
+        value: 30
+      # RENTAL_PROMPT_DIR is left unset on purpose: the default resolves to
+      # the repo's assistant/ folder (SYSTEM_PROMPT.md + KNOWLEDGE.md), which
+      # sits next to rental/ in the repo.
+
+  - type: web
+    name: cyberciv-rental-webhook
+    runtime: python
+    branch: master
+    rootDir: rental
+    buildCommand: echo "stdlib only - no build step"
+    startCommand: WEBHOOK_PORT=$PORT python3 stripe_webhook.py
+    healthCheckPath: /healthz
+    autoDeploy: true
+    disk:
+      name: cyberciv-webhook-data
+      mountPath: /var/data
+      sizeGB: 1 # webhook.db (event log + customer links) — tiny
+    envVars:
+      - key: WEBHOOK_DB
+        value: /var/data/webhook.db
+      # SECRET — whsec_... from Stripe Dashboard -> Developers -> Webhooks,
+      # created for THIS service's URL (see CONNECT-ALL.md).
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      # SECRET — must be the SAME value as the API service's admin token.
+      - key: RENTAL_ADMIN_TOKEN
+        sync: false
+      # Where the webhook reaches the rental API's admin endpoints. Update to
+      # the API service's real URL after it is created (default guess below).
+      - key: RENTAL_ADMIN_URL
+        value: https://cyberciv-rental-api.onrender.com
+      # Live Stripe price IDs (public identifiers, already wired into the
+      # Cyber CIV pricing page — not secrets).
+      - key: PRICE_STARTER
+        value: price_1UKhCUJfJcUBPvaAw6wFWkBz
+      - key: PRICE_PRO
+        value: price_1UKhDAJfJcUBPvaAfnukFPsa
+      # Optional SMTP block (automatic API-key emails to customers). Without
+      # these, new keys print to the service logs for manual delivery.
+      # - key: SMTP_HOST
+      #   sync: false
+      # - key: SMTP_PORT
+      #   value: 587
+      # - key: SMTP_USER
+      #   sync: false
+      # - key: SMTP_PASS
+      #   sync: false
+      # - key: SMTP_FROM
+      #   sync: false

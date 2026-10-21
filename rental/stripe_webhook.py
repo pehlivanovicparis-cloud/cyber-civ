@@ -399,7 +399,8 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     init_db()
-    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    # Bind 0.0.0.0 — Render routes traffic straight to the process; there is no Caddy/reverse proxy in front anymore.
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"Stripe webhook receiver on 127.0.0.1:{PORT}/stripe-webhook")
     print("Expose it via HTTPS (reverse proxy) and register the public URL "
           "in the Stripe Dashboard.")

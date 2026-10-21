@@ -382,7 +382,8 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     init_db()
-    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    # Bind 0.0.0.0 — Render routes traffic straight to the process; there is no Caddy/reverse proxy in front anymore.
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"CIV rental backend on 127.0.0.1:{PORT} "
           f"(model={MODEL}, db={DB_PATH})")
     print("Put it behind a reverse proxy (nginx/Caddy) with TLS for production.")
