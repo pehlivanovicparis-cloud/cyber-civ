@@ -50,7 +50,7 @@ DEFAULT_HISTORY_FILE = Path("memory/history.jsonl")
 DEFAULT_GENERATIONS = 20
 FINGERPRINT_ROSTER_FILE = Path("memory/fingerprints.json")
 
-SWARMS = ("Ares", "Pax", "Vex", "Archon")
+SWARMS = ("Ares", "Pax", "Vex", "Archon", "Aegis")
 WORLDS = ("crypto", "banking", "network", "governance")
 COUNTRIES = ("US", "CN", "NG", "DE")
 
@@ -80,14 +80,15 @@ PERSONALITY = {
     "Pax": {"bias": -0.10, "learning_rate": 0.04}, # optimist, slow adapter
     "Vex": {"bias": 0.0, "learning_rate": 0.06},   # pragmatist, medium adapter
     "Archon": {"bias": 0.05, "learning_rate": 0.05},   # regulator: sees risk, medium adapter
+    "Aegis": {"bias": -0.05, "learning_rate": 0.05},  # custodian: calm, steady; home turf is theft/fraud
 }
 
-ACTIONS = ("EXPAND", "STABILIZE", "EXPLORE", "SPY", "EMBARGO", "SUMMIT")
+ACTIONS = ("EXPAND", "STABILIZE", "EXPLORE", "SPY", "EMBARGO", "SUMMIT", "RECOVER")
 BASIC_ACTIONS = ("EXPAND", "STABILIZE", "EXPLORE")
-ADVANCED_ACTIONS = ("SPY", "EMBARGO", "SUMMIT")  # "hands": act on the world
+ADVANCED_ACTIONS = ("SPY", "EMBARGO", "SUMMIT", "RECOVER")  # "hands": act on the world
 
 # Hands mechanics: cost is intent spent by the actor; cooldowns in generations.
-ACTION_COOLDOWNS = {"SPY": 3, "EMBARGO": 5, "SUMMIT": 4}
+ACTION_COOLDOWNS = {"SPY": 3, "EMBARGO": 5, "SUMMIT": 4, "RECOVER": 4}
 SPY_COST = 0.01
 SPY_INTEL_GAIN = 0.015   # small edge from knowing the target's intent
 SPY_INTEL_GENS = 3       # how long the intel stays fresh
@@ -95,6 +96,21 @@ EMBARGO_COST = 0.02
 EMBARGO_DAMAGE = 0.05    # intent stripped from the target
 SUMMIT_COST = 0.01
 SUMMIT_BOOST = 0.01      # every civilization gains this much intent
+RECOVER_COST = 0.01      # intent Aegis spends per recovery
+RECOVER_MAX = 0.10       # most treasury restored in one RECOVER
+RECOVER_P = 0.6          # scripted Aegis attempts RECOVER when a loss is open
+FALLBACK_MAX = 0.05      # most treasury the engine auto-reimburses per generation
+
+# Recovery economy (Aegis): theft/breach events record real losses in each
+# civilization's treasury; a small levy from every civ funds the recovery
+# pool, and Aegis restores the FROZEN share of a loss from the pool. The
+# unfrozen share is gone for good — like the real Binance theft, where
+# ~$3B of $6.3B was frozen and the rest was not.
+THEFT_MIN_RISK = 0.6     # only significant crypto/banking events steal
+THEFT_BASE = 0.05        # loss floor (treasury units)
+THEFT_RISK_SCALE = 0.10  # loss grows with event risk
+LEVY = 0.005             # treasury each civ pays into the pool per generation
+POOL_CAP = 0.5           # recovery pool stops growing here
 
 # Scripted-heuristic usage rates (per generation, per civ). Kept low so the
 # verified balance stays close to the all-basic baseline.
@@ -117,6 +133,7 @@ class Event:
 class Civilization:
     name: str
     intent: float = 0.5
+    treasury: float = 1.0   # funds; theft events steal, RECOVER restores
     wins: int = 0
     bias: float = 0.0
     learning_rate: float = INTENT_LEARNING_RATE
@@ -131,6 +148,9 @@ class Civilization:
         if event.world == "governance":
             # Home turf: Archon reads regulation clearly; everyone else guesses.
             noise *= 0.5 if self.name == "Archon" else 1.5
+        elif event.world in ("crypto", "banking") and self.name == "Aegis":
+            # Home turf: Aegis reads theft/fraud clearly.
+            noise *= 0.5
         return max(0.0, min(1.0, event.risk + self.bias + rng.uniform(-noise, noise)))
 
     def decide_action(self) -> str:
@@ -178,6 +198,7 @@ class Civilization:
             "SPY": "Infiltrator",
             "EMBARGO": "Coercer",
             "SUMMIT": "Diplomat",
+            "RECOVER": "Restorer",
         }[self.dominant_action()]
         vol_label = "Volatile " if self.volatility() > 0.08 else ""
         wr = self.win_rate()
@@ -195,6 +216,7 @@ def default_state() -> dict[str, Any]:
         p = PERSONALITY[n]
         swarms[n] = {
             "intent": 0.5,
+            "treasury": 1.0,
             "wins": 0,
             "bias": p["bias"],
             "learning_rate": p["learning_rate"],
@@ -215,12 +237,15 @@ def default_state() -> dict[str, Any]:
         "gov_suspended_until": 0,
         "intel": {},                                    # spy -> {target: {intent, until}}
         "action_cooldowns": {n: {} for n in SWARMS},    # name -> {action: gens left}
+        "recovery_pool": 0.0,                           # levy-funded; Aegis pays recoveries from it
+        "loss_ledger": [],                              # theft records: victim/amount/frozen/recovered
     }
 
 
 def _repair_swarm_entry(entry: dict[str, Any], name: str) -> dict[str, Any]:
     p = PERSONALITY[name]
     entry.setdefault("intent", 0.5)
+    entry.setdefault("treasury", 1.0)
     entry.setdefault("wins", 0)
     entry.setdefault("bias", p["bias"])
     entry.setdefault("learning_rate", p["learning_rate"])
@@ -378,6 +403,89 @@ def normalize_target(target: str | None, civs: list[Civilization], actor: str) -
     return None
 
 
+# ---------------------------------------------------------------------------
+# Recovery economy (Aegis)
+# ---------------------------------------------------------------------------
+
+def record_theft_loss(state: dict[str, Any], civs: list[Civilization],
+                      event: Event, rng: random.Random) -> dict[str, Any] | None:
+    """A significant theft/breach event steals from the richest target.
+
+    The victim loses treasury; the frozen share is recorded as recoverable,
+    the rest is gone. Returns the loss record (also appended to the ledger),
+    or None when the event is not a theft.
+    """
+    if event.world not in ("crypto", "banking") or event.risk < THEFT_MIN_RISK:
+        return None
+    targets = [c for c in civs if c.name not in ("Archon", "Aegis")]
+    if not targets:
+        return None
+    victim = max(targets, key=lambda c: c.intent)
+    amount = round(min(victim.treasury, THEFT_BASE + event.risk * THEFT_RISK_SCALE), 3)
+    if amount <= 0:
+        return None
+    frozen = round(amount * rng.uniform(0.4, 0.6), 3)
+    victim.treasury = round(victim.treasury - amount, 3)
+    record = {
+        "id": len(state.get("loss_ledger", [])) + 1,
+        "generation": state["generation"],
+        "victim": victim.name,
+        "amount": amount,
+        "frozen": frozen,
+        "recovered": 0.0,
+        "status": "open",
+        "headline": (event.headline or "")[:80],
+    }
+    state.setdefault("loss_ledger", []).append(record)
+    return record
+
+
+def open_losses(state: dict[str, Any]) -> list[dict[str, Any]]:
+    """Losses with frozen funds still unrecovered."""
+    return [l for l in state.get("loss_ledger", [])
+            if l["status"] == "open" and l["frozen"] - l["recovered"] > 0]
+
+
+def apply_recovery_fallback(state: dict[str, Any],
+                            civs: list[Civilization]) -> dict[str, Any] | None:
+    """Engine-level recovery fallback — the placeholder the recovery falls
+    back on.
+
+    When Aegis did not successfully RECOVER this generation, the engine
+    itself reimburses the oldest open loss from the recovery pool, capped at
+    FALLBACK_MAX per generation. No actor, no intent cost, no cooldown: the
+    point is that victims are never stranded because the custodian was on
+    cooldown, failed its roll, or the LLM call failed.
+
+    Invariants: reimbursed <= frozen remainder per loss (so recovered <=
+    frozen always holds); treasury + pool is conserved exactly (the victim
+    gains exactly what the pool loses). Returns the fallback event, or None.
+    """
+    losses = open_losses(state)
+    pool = state.get("recovery_pool", 0.0)
+    if not losses or pool <= 0:
+        return None
+    loss = losses[0]  # oldest open loss first
+    victim = next((c for c in civs if c.name == loss["victim"]), None)
+    if victim is None:
+        return None
+    amount = round(min(loss["frozen"] - loss["recovered"], pool, FALLBACK_MAX), 3)
+    if amount <= 0:
+        return None
+    victim.treasury = round(victim.treasury + amount, 3)
+    state["recovery_pool"] = round(pool - amount, 3)
+    loss["recovered"] = round(loss["recovered"] + amount, 3)
+    if loss["recovered"] >= loss["frozen"]:
+        loss["status"] = "closed"
+    return {
+        "type": "RECOVERY_FALLBACK",
+        "victim": victim.name,
+        "loss_id": loss["id"],
+        "amount": amount,
+        "pool_after": round(state["recovery_pool"], 3),
+    }
+
+
 def choose_scripted_advanced_action(civ: Civilization, civs: list[Civilization],
                                     state: dict[str, Any],
                                     rng: random.Random) -> tuple[str | None, str | None]:
@@ -386,6 +494,15 @@ def choose_scripted_advanced_action(civ: Civilization, civs: list[Civilization],
     Returns (action, target) or (None, None). Kept deliberately rare so the
     long-run balance stays near the verified all-basic baseline.
     """
+    if civ.name == "Aegis":
+        # The custodian's job: recover open losses while the pool lasts.
+        losses = open_losses(state)
+        pool = state.get("recovery_pool", 0.0)
+        if (losses and pool > 0 and cooldown_ready(state, civ.name, "RECOVER")
+                and rng.random() < RECOVER_P):
+            victim = max(losses, key=lambda l: l["frozen"] - l["recovered"])["victim"]
+            return "RECOVER", victim
+        return None, None
     rivals = [c for c in civs if c.name != civ.name and c.name not in civ.allies]
     if not rivals:
         return None, None
@@ -443,6 +560,33 @@ def resolve_advanced_action(state: dict[str, Any], civs: list[Civilization],
             c.intent = min(1.0, c.intent + SUMMIT_BOOST)
         set_cooldown(state, name, "SUMMIT")
         detail = f"all +{SUMMIT_BOOST:.2f} intent"
+    elif action == "RECOVER":
+        t = by_name.get(target or "")
+        if name != "Aegis":
+            ok, detail = False, "only Aegis recovers"
+        elif t is None:
+            ok, detail = False, f"bad target {target}"
+        else:
+            losses = [l for l in open_losses(state) if l["victim"] == t.name]
+            pool = state.get("recovery_pool", 0.0)
+            if not losses:
+                ok, detail = False, f"no open loss for {t.name}"
+            elif pool <= 0:
+                ok, detail = False, "recovery pool empty"
+            else:
+                loss = losses[0]
+                amount = round(min(loss["frozen"] - loss["recovered"], pool, RECOVER_MAX), 3)
+                if amount <= 0:
+                    ok, detail = False, "nothing recoverable"
+                else:
+                    civ.intent = max(0.0, civ.intent - RECOVER_COST)
+                    t.treasury = round(t.treasury + amount, 3)
+                    state["recovery_pool"] = round(pool - amount, 3)
+                    loss["recovered"] = round(loss["recovered"] + amount, 3)
+                    if loss["recovered"] >= loss["frozen"]:
+                        loss["status"] = "closed"
+                    set_cooldown(state, name, "RECOVER")
+                    detail = f"{t.name} +{amount:.2f} treasury (loss #{loss['id']})"
     else:
         ok, detail = False, f"unknown action {action}"
     events.append({"type": "ADVANCED_ACTION", "actor": name, "action": action,
@@ -550,14 +694,15 @@ def maybe_election(state: dict[str, Any], civs: list[Civilization]) -> dict[str,
         return None
     gov = next(c for c in civs if c.name == "Archon")
     sanctions = state.get("sanctions", {})
+    voters = [c for c in civs if c.name != "Archon"]
     votes_oust = sum(
-        1 for c in civs
-        if c.name != "Archon" and (gov.win_rate() < 0.40 or c.name in sanctions)
+        1 for c in voters
+        if gov.win_rate() < 0.40 or c.name in sanctions
     )
-    ousted = votes_oust >= 2
+    ousted = votes_oust * 2 > len(voters)   # strict majority (was >= 2 of 3)
     if ousted:
         state["gov_suspended_until"] = gen + GOV_SUSPENSION_GENS
-    return {"ousted": ousted, "votes_oust": votes_oust,
+    return {"ousted": ousted, "votes_oust": votes_oust, "voters": len(voters),
             "gov_win_rate": round(gov.win_rate(), 3)}
 
 
@@ -640,6 +785,7 @@ def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
         Civilization(
             name=n,
             intent=sw[n]["intent"],
+            treasury=sw[n].get("treasury", 1.0),
             wins=sw[n]["wins"],
             bias=sw[n]["bias"],
             learning_rate=sw[n]["learning_rate"],
@@ -653,6 +799,18 @@ def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
     ]
 
     event = generate_event(rng)
+
+    # Recovery economy: theft/breach events steal, every civ pays the levy.
+    state.setdefault("recovery_pool", 0.0)
+    state.setdefault("loss_ledger", [])
+    theft_events: list[dict[str, Any]] = []
+    loss = record_theft_loss(state, civs, event, rng)
+    if loss:
+        theft_events.append({"type": "THEFT", **loss})
+    for civ in civs:
+        levy = min(LEVY, civ.treasury)
+        civ.treasury = round(civ.treasury - levy, 3)
+        state["recovery_pool"] = round(min(POOL_CAP, state["recovery_pool"] + levy), 3)
 
     # Last generation's Archon mandates override this generation's decisions.
     gov_events: list[dict[str, Any]] = []
@@ -701,6 +859,14 @@ def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
             civ.action_counts["STABILIZE"] = civ.action_counts.get("STABILIZE", 0) + 1
             actions[civ.name] = "STABILIZE"
 
+    # Recovery fallback: if Aegis did not successfully RECOVER this
+    # generation, the engine itself reimburses the oldest open loss from the
+    # pool (capped per generation). A placeholder the recovery falls back on
+    # when the custodian cannot act — no actor, no intent cost, no cooldown.
+    fallback_event: dict[str, Any] | None = None
+    if not any(ae["action"] == "RECOVER" and ae["ok"] for ae in advanced_events):
+        fallback_event = apply_recovery_fallback(state, civs)
+
     update_alliances(civs)
     a, b = pick_competitors(civs, rng)
     winner = compete(a, b, state, rng, gov_events)
@@ -722,6 +888,7 @@ def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
     # Persist learned fields back into state.
     for civ in civs:
         sw[civ.name]["intent"] = round(civ.intent, 4)
+        sw[civ.name]["treasury"] = round(civ.treasury, 3)
         sw[civ.name]["action_counts"] = civ.action_counts
         sw[civ.name]["recent_intents"] = civ.recent_intents
         sw[civ.name]["allies"] = sorted(civ.allies)
@@ -749,17 +916,23 @@ def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
             print(f"🏛️ sanction flips it: {ge['original_winner']} denied → {ge['new_winner']} takes the win")
         elif t == "VETO":
             print(f"🏛️ Archon VETO: {ge['original_winner']}'s win overturned → {ge['new_winner']} wins")
+    for te in theft_events:
+        print(f"💸 THEFT: {te['victim']} lost {te['amount']:.2f} treasury "
+              f"({te['frozen']:.2f} frozen, loss #{te['id']})")
     for ae in advanced_events:
-        icon = {"SPY": "🕵️", "EMBARGO": "🚫", "SUMMIT": "🤝"}.get(ae["action"], "✋")
+        icon = {"SPY": "🕵️", "EMBARGO": "🚫", "SUMMIT": "🤝", "RECOVER": "🛡️"}.get(ae["action"], "✋")
         mark = "✓" if ae["ok"] else "✗"
         tgt = f" → {ae['target']}" if ae["target"] else ""
         print(f"{icon} {ae['actor']} {ae['action']}{tgt} {mark} ({ae['detail']})")
+    if fallback_event:
+        print(f"🛟 FALLBACK: {fallback_event['victim']} +{fallback_event['amount']:.2f} treasury "
+              f"(loss #{fallback_event['loss_id']}, pool now {fallback_event['pool_after']:.2f})")
     if election:
         if election["ousted"]:
-            print(f"🗳️ ELECTION: Archon voted OUT ({election['votes_oust']}/3), "
+            print(f"🗳️ ELECTION: Archon voted OUT ({election['votes_oust']}/{election['voters']}), "
                   f"suspended {GOV_SUSPENSION_GENS} generations")
         else:
-            print(f"🗳️ ELECTION: Archon retains power ({election['votes_oust']}/3 votes to oust)")
+            print(f"🗳️ ELECTION: Archon retains power ({election['votes_oust']}/{election['voters']} votes to oust)")
     print("-" * 64)
 
     if memory_dir is not None:
@@ -781,6 +954,10 @@ def run_generation(state: dict[str, Any], rng: random.Random, delay: float,
         "match": f"{a.name} vs {b.name}",
         "winner": winner.name,
         "world_pressure": round(state["world_pressure"], 4),
+        "treasury": {c.name: round(c.treasury, 3) for c in civs},
+        "recovery_pool": round(state.get("recovery_pool", 0.0), 3),
+        "loss_ledger": list(state.get("loss_ledger", [])),
+        "recovery_fallback": fallback_event,
         "collapse": collapse,
         "fingerprints": {c.name: c.fingerprint() for c in civs},
         "governance": {

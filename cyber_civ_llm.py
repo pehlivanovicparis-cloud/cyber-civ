@@ -241,6 +241,15 @@ PERSONAS = {
         "overreach gets you voted out of power in elections. "
         "Speak as Archon in first person when giving your reason."
     ),
+    "Aegis": (
+        "You are Aegis, the custodian civilization in the CYBER CIV simulation. "
+        "Your job is recovery: when theft or breach events steal from another "
+        "civilization, you restore the frozen share from the recovery pool every "
+        "civilization pays into. You read crypto and banking threats clearly, "
+        "you act only when a loss is open and the pool can pay, and you never "
+        "take funds for yourself. Speak as Aegis in first person when giving "
+        "your reason."
+    ),
 }
 
 # ---------------------------------------------------------------------------
@@ -401,13 +410,15 @@ HANDS_PROMPT = (
     "Hands — beyond the basic actions you can act on the world: "
     "SPY <rival> reveals their exact intent (small cost, 3-generation cooldown); "
     "EMBARGO <rival> drains their intent (costs you, 5-generation cooldown, never on allies); "
-    "SUMMIT lifts every civilization slightly including you (4-generation cooldown)."
+    "SUMMIT lifts every civilization slightly including you (4-generation cooldown); "
+    "RECOVER <victim> restores frozen stolen funds to that victim from the "
+    "recovery pool (Aegis only, small cost, 4-generation cooldown)."
 )
 
 
 def _decision_schema(with_tools: bool) -> str:
     s = ('Respond with JSON only: {"perceived_risk": <0.0-1.0>, '
-         '"action": "EXPAND"|"STABILIZE"|"EXPLORE"|"SPY"|"EMBARGO"|"SUMMIT", '
+         '"action": "EXPAND"|"STABILIZE"|"EXPLORE"|"SPY"|"EMBARGO"|"SUMMIT"|"RECOVER", '
          '"target": "<rival name for SPY/EMBARGO, else null>", '
          '"reason": "<max 20 words>"')
     if with_tools:
@@ -425,6 +436,7 @@ def _decision_prompt(civ: "core.Civilization", event: "core.Event",
         f"Generation {gen}.",
         f"World event: [{event.world}] {event.country} — {event.flavor or 'no further detail'}.",
         f"Your current intent: {civ.intent:.2f} (0=withdrawn, 1=all-in).",
+        f"Your treasury: {civ.treasury:.2f}. Recovery pool: {state.get('recovery_pool', 0.0):.2f}.",
         f"Your record: {civ.wins} wins / {civ.total_matches} matches.",
         f"World pressure: {state['world_pressure']:.2f} (high = the world punishes expansion).",
     ]
@@ -447,6 +459,17 @@ def _decision_prompt(civ: "core.Civilization", event: "core.Event",
             f"{t} intent={v['intent']:.2f} ({v['until'] - gen}g fresh)"
             for t, v in sorted(fresh.items()))
         lines.append(f"Intel from past spying: {bits}.")
+    if civ.name == "Aegis":
+        losses = [l for l in state.get("loss_ledger", [])
+                  if l["status"] == "open" and l["frozen"] - l["recovered"] > 0]
+        if losses:
+            bits = "; ".join(
+                f"#{l['id']} {l['victim']} lost {l['amount']:.2f}, "
+                f"{l['frozen'] - l['recovered']:.2f} frozen left"
+                for l in losses)
+            lines.append(f"Open losses you can recover: {bits}.")
+        else:
+            lines.append("No open losses to recover.")
     lines.append(HANDS_PROMPT)
     if cfg.tools:
         lines.append(TOOL_PROMPT)
@@ -455,7 +478,7 @@ def _decision_prompt(civ: "core.Civilization", event: "core.Event",
 
 DIRECTIVE_SCHEMA = (
     'Respond with JSON only: {"directive": "MANDATE"|"SANCTION"|"NONE", '
-    '"target": "Ares"|"Pax"|"Vex"|null, "reason": "<max 20 words>"}.'
+    '"target": "Ares"|"Pax"|"Vex"|"Aegis"|null, "reason": "<max 20 words>"}.'
 )
 
 # ---------------------------------------------------------------------------
