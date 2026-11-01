@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<!--
+  CYBER CIV — Live Spectator
+  Copyright (c) 2026 Paris Pehlivanovic. All rights reserved.
+  PROPRIETARY — see LICENSE for terms. No copying, modification,
+  distribution, or use without prior written permission.
+
+  Spectator mode v1 (BUILD-PLAN Day 4–5, must-have #2): a read-only view
+  over a running world. It polls the run's own output files — the
+  per-generation history log and the per-civilization memory journals —
+  and renders each generation as it lands. It never writes, never
+  restarts, never touches the sim.
+
+  HOW TO RUN (local only — memory/ is gitignored, so this page cannot
+  work from GitHub Pages; it reads run files off this machine):
+      cd <repo root>
+      python3 -m http.server 8000
+  then open http://localhost:8000/spectator.html while the sim runs.
+  Opened directly as file:// the fetches are blocked, so use the
+  "Load run files" pickers at the bottom instead (history.jsonl, then
+  the four memory/civ_memory/*.jsonl journals) — that loads a finished
+  run as a replay.
+
+  HONESTY RULE: the badge says LIVE only while new generations keep
+  arriving. A finished or stalled run is labelled REPLAY — a replay is
+  never passed off as live.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CYBER CIV — Live Spectator</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#121722; --panel2:#0e1420; --line:#232c3f;
+    --txt:#dbe2f1; --dim:#8b96b3; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{padding:18px 20px 12px;border-bottom:1px solid var(--line)}
+  header h1{margin:0;font-size:22px;letter-spacing:2px}
+  header h1 .civ{color:#ffd166}
+  header p{margin:6px 0 0;color:var(--dim);font-size:13px}
+  .wrap{max-width:1100px;margin:0 auto;padding:16px 20px 40px}
+  .statusbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0}
+  .statusbar .gen{font-family:var(--mono);font-size:14px;color:var(--dim);margin-right:auto}
+  .statusbar .gen b{color:var(--txt);font-size:18px}
+  .badge{display:inline-block;border:1px solid var(--line);border-radius:6px;
+    padding:4px 10px;font-size:12px;font-family:var(--mono)}
+  .badge.live{background:#12351f;border-color:#2c7a45;color:#7be495}
+  .badge.replay{background:#2a2113;border-color:#7a622c;color:#ffd166}
+  .badge.err{background:#3a1414;border-color:#7a2c2c;color:#ff9a9a}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;margin:12px 0}
+  .panel h3{margin:0 0 8px;font-size:13px;letter-spacing:1px;color:var(--dim);text-transform:uppercase}
+  #headline{font-size:17px;line-height:1.45;margin:0}
+  #eventMeta{font-family:var(--mono);font-size:12.5px;color:var(--dim);margin-top:8px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:14px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--accent,#888);
+    border-radius:10px;padding:12px 14px}
+  .chead{display:flex;justify-content:space-between;align-items:baseline}
+  .cname{font-weight:700;letter-spacing:1px;color:var(--accent,#fff)}
+  .mode{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .mode.llm{color:#7be495}
+  .action{font-family:var(--mono);font-size:16px;margin:8px 0 4px}
+  .reason{font-size:13px;color:var(--txt);line-height:1.5;min-height:38px}
+  .reason.empty{color:var(--dim);font-style:italic}
+  .intentbar{height:8px;background:#1a2130;border-radius:4px;margin:8px 0;overflow:hidden}
+  .intentbar .fill{height:100%;background:var(--accent,#888);border-radius:4px;transition:width .3s}
+  .stats{font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .badges{margin-top:6px;font-size:12px;min-height:18px}
+  .tag{display:inline-block;background:#1a2130;border:1px solid var(--line);
+    border-radius:6px;padding:2px 8px;margin-right:6px}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px}
+  th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:600}
+  .pbar{height:10px;background:#1a2130;border-radius:5px;overflow:hidden;margin-top:8px}
+  .pbar .fill{height:100%;background:linear-gradient(90deg,#3ddc84,#ffd166,#ff5d5d);transition:width .3s}
+  #feed{font-family:var(--mono);font-size:12.5px;line-height:1.7;max-height:340px;overflow-y:auto;
+    background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+  #feed .gov{color:#ffd166}
+  #feed .dim{color:var(--dim)}
+  .loaders{font-size:13px;color:var(--dim)}
+  .loaders label{display:block;margin:8px 0 4px;color:var(--txt)}
+  footer{color:var(--dim);font-size:12px;margin-top:24px;line-height:1.6}
+  footer code{font-family:var(--mono);color:var(--txt)}
+</style>
+</head>
+<body>
+<header>
+  <h1>CYBER <span class="civ">CIV</span> — LIVE SPECTATOR</h1>
+  <p>Four civilizations govern themselves, one generation at a time. Read-only: this page watches the run, it never touches it.</p>
+</header>
+<div class="wrap">
+
+  <div class="statusbar">
+    <span class="gen">Generation <b id="genNum">—</b> <span id="genNote" class="dim"></span></span>
+    <span id="liveBadge" class="badge replay">REPLAY</span>
+    <span id="updatedAt" class="badge">waiting for run data…</span>
+  </div>
+
+  <div class="panel">
+    <h3>World event</h3>
+    <p id="headline">No run loaded yet.</p>
+    <div id="eventMeta"></div>
+    <div class="pbar"><div class="fill" id="pressureFill" style="width:0%"></div></div>
+    <div class="stats" id="pressureText" style="margin-top:6px"></div>
+  </div>
+
+  <div class="grid" id="civGrid"></div>
+
+  <div class="panel">
+    <h3>Standings</h3>
+    <table id="standings">
+      <thead><tr><th>Civilization</th><th>Wins</th><th>Matches</th><th>Win rate</th><th>Decisions</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h3>Governance — Archon</h3>
+    <div id="govLine" class="stats">No governance events yet.</div>
+  </div>
+
+  <div class="panel">
+    <h3>Recent generations</h3>
+    <div id="feed">No generations yet.</div>
+  </div>
+
+  <div class="panel loaders">
+    <h3>Load run files (only needed when opened as file://)</h3>
+    <label>History log — memory/history.jsonl</label>
+    <input type="file" id="historyFile" accept=".jsonl">
+    <label>Memory journals — memory/civ_memory/*.jsonl (pick all four)</label>
+    <input type="file" id="journalFiles" accept=".jsonl" multiple>
+    <p>Loaded files are rendered as a replay and polling stops.</p>
+  </div>
+
+  <footer>
+    Served locally? Run <code>python3 -m http.server 8000</code> from the repo root and open
+    <code>http://localhost:8000/spectator.html</code> while the sim runs — the page polls
+    <code>memory/history.jsonl</code> and <code>memory/civ_memory/*.jsonl</code> every 3 seconds.
+    Headlines appear only for generations recorded after the history log started carrying
+    them (see cyber_civ.py); older rows show the world / country / risk instead.
+  </footer>
+</div>
+
+<script>
+"use strict";
+/* Spectator v1 — read-only polling renderer. No writes, no sim control. */
+const CIVS = [
+  {name: "Ares",   color: "#ff5d5d"},
+  {name: "Pax",    color: "#5da9ff"},
+  {name: "Vex",    color: "#9aa3b2"},
+  {name: "Archon", color: "#ffd166"},
+];
+const JOURNAL_FILES = CIVS.map(c => "memory/civ_memory/" + c.name + ".jsonl");
+const POLL_MS = 3000;
+const LIVE_WINDOW_MS = 45000;
+
+const $ = id => document.getElementById(id);
+let lastGen = null;          // highest generation seen
+let lastGenChangeAt = 0;     // when lastGen last increased
+let lastPollAt = null;       // last successful poll
+let fileMode = false;        // true once files are loaded via picker
+let pollTimer = null;
+let currentHistory = [];     // last history rows rendered (either source)
+let currentJournals = {};    // latest journal row per civ (either source)
+
+function renderCurrent() {
+  if (currentHistory.length) render(currentHistory, currentJournals);
+}
+
+function el(tag, text, cls) {
+  const n = document.createElement(tag);
+  if (text !== undefined && text !== null) n.textContent = text;
+  if (cls) n.className = cls;
+  return n;
+}
+
+function parseJSONL(text) {
+  const rows = [];
+  for (const line of text.split("\n")) {
+    const t = line.trim();
+    if (!t) continue;
+    try { rows.push(JSON.parse(t)); } catch (e) { /* skip a torn last line mid-write */ }
+  }
+  return rows;
+}
+
+async function fetchText(path) {
+  const res = await fetch(path + "?t=" + Date.now(), {cache: "no-store"});
+  if (!res.ok) throw new Error(path + ": HTTP " + res.status);
+  return res.text();
+}
+
+function journalByCiv(journalRows) {
+  // journalRows: array per civ, in CIVS order. Return latest row per civ.
+  const out = {};
+  CIVS.forEach((c, i) => {
+    const rows = journalRows[i] || [];
+    out[c.name] = rows.length ? rows[rows.length - 1] : null;
+  });
+  return out;
+}
+
+function render(history, journals) {
+  if (!history.length) return;
+  const latest = history[history.length - 1];
+  const gen = latest.generation;
+  // First sighting sets the baseline without claiming "live": a stale
+  // file must read REPLAY immediately. Only a generation that arrives
+  // while we are watching counts as live activity.
+  if (lastGen === null) {
+    lastGen = gen;
+  } else if (gen > lastGen) {
+    lastGen = gen;
+    lastGenChangeAt = Date.now();
+  }
+  lastPollAt = new Date();
+
+  $("genNum").textContent = String(gen);
+  $("genNote").textContent = latest.collapse ? " — COLLAPSE: " + latest.collapse : "";
+
+  // Live vs replay: live only while generations keep arriving.
+  const live = !fileMode && (Date.now() - lastGenChangeAt) < LIVE_WINDOW_MS;
+  const badge = $("liveBadge");
+  badge.textContent = live ? "● LIVE" : "REPLAY";
+  badge.className = "badge " + (live ? "live" : "replay");
+  $("updatedAt").textContent = "updated " + lastPollAt.toLocaleTimeString();
+
+  // World event — headline when the run recorded one, else world/country/risk.
+  const ev = latest.event || {};
+  $("headline").textContent = ev.headline
+    ? ev.headline
+    : "World event: " + (ev.world || "?") + " / " + (ev.country || "?");
+  $("eventMeta").textContent =
+    (ev.source ? "via " + ev.source + " · " : "") +
+    "world " + (ev.world || "?") + " · country " + (ev.country || "?") +
+    " · risk " + (ev.risk !== undefined ? Number(ev.risk).toFixed(2) : "?") +
+    (ev.flavor ? " · " + ev.flavor : "") +
+    (latest.match ? " · match " + latest.match : "") +
+    (latest.winner ? " · winner " + latest.winner : "");
+  const pressure = latest.world_pressure !== undefined ? latest.world_pressure : 0;
+  $("pressureFill").style.width = Math.round(pressure * 100) + "%";
+  $("pressureText").textContent = "world pressure " + Number(pressure).toFixed(3);
+
+  // Civilization cards.
+  const grid = $("civGrid");
+  grid.textContent = "";
+  for (const civ of CIVS) {
+    // Journals lag the history log when a run is scripted (only the LLM
+    // driver writes them). A stale journal's reason describes a different
+    // generation, so use it only when it matches this generation.
+    const rawJ = journals[civ.name] || {};
+    const j = (rawJ.generation === gen) ? rawJ : {};
+    const jCurrent = rawJ.generation === gen;
+    const action = (latest.actions && latest.actions[civ.name]) || j.action || "—";
+    const target = (latest.targets && latest.targets[civ.name]) || j.target || "";
+    const intent = latest.intents ? latest.intents[civ.name] : j.intent_after;
+    const mode = jCurrent ? ((j.mode || "").trim() || "scripted") : "—";
+    const card = el("div", null, "card");
+    card.style.setProperty("--accent", civ.color);
+    const head = el("div", null, "chead");
+    head.appendChild(el("span", civ.name, "cname"));
+    const modeEl = el("span", mode === "[LLM]" ? "LLM" : (mode === "—" ? "—" : "scripted"), "mode" + (mode === "[LLM]" ? " llm" : ""));
+    head.appendChild(modeEl);
+    card.appendChild(head);
+    card.appendChild(el("div", action + (target ? " → " + target : ""), "action"));
+    const reason = (j.reason || "").trim();
+    card.appendChild(el("div",
+      reason ? "“" + reason + "”"
+        : (jCurrent ? "No reason recorded — scripted fallback."
+                    : "Journal for this generation hasn't landed yet."),
+      "reason" + (reason ? "" : " empty")));
+    const bar = el("div", null, "intentbar");
+    const fill = el("div", null, "fill");
+    fill.style.width = Math.round(((intent !== undefined ? intent : 0.5)) * 100) + "%";
+    bar.appendChild(fill);
+    card.appendChild(bar);
+    card.appendChild(el("div",
+      "intent " + (intent !== undefined ? Number(intent).toFixed(3) : "—") +
+      (j.allies && j.allies.length ? " · allied with " + j.allies.join(", ") : ""),
+      "stats"));
+    const badges = el("div", null, "badges");
+    if (j.in_match) badges.appendChild(el("span", "in match", "tag"));
+    if (j.won === true) badges.appendChild(el("span", "won", "tag"));
+    if (j.won === false) badges.appendChild(el("span", "lost", "tag"));
+    if (j.mandated) badges.appendChild(el("span", "mandated", "tag"));
+    if (j.sanctioned) badges.appendChild(el("span", "sanctioned", "tag"));
+    card.appendChild(badges);
+    grid.appendChild(card);
+  }
+
+  // Standings, computed from the whole history (not the stale store.json).
+  const wins = {}, matches = {}, acts = {};
+  for (const row of history) {
+    if (row.winner) wins[row.winner] = (wins[row.winner] || 0) + 1;
+    if (row.match) {
+      for (const n of String(row.match).split(" vs ")) {
+        matches[n] = (matches[n] || 0) + 1;
+      }
+    }
+    if (row.actions) {
+      for (const [n, a] of Object.entries(row.actions)) {
+        (acts[n] = acts[n] || {})[a] = ((acts[n] || {})[a] || 0) + 1;
+      }
+    }
+  }
+  const tbody = $("standings").querySelector("tbody");
+  tbody.textContent = "";
+  for (const civ of CIVS) {
+    const w = wins[civ.name] || 0, m = matches[civ.name] || 0;
+    const tr = document.createElement("tr");
+    tr.appendChild(el("td", civ.name));
+    tr.appendChild(el("td", String(w)));
+    tr.appendChild(el("td", String(m)));
+    tr.appendChild(el("td", m ? (w / m * 100).toFixed(1) + "%" : "—"));
+    const a = acts[civ.name] || {};
+    tr.appendChild(el("td", Object.entries(a).map(([k, v]) => k + " " + v).join(", ") || "—"));
+    tbody.appendChild(tr);
+  }
+
+  // Governance.
+  const gov = latest.governance || {};
+  const govParts = [];
+  if (gov.directive) govParts.push("Directive: " + gov.directive.type + " " + gov.directive.target + " → " + gov.directive.action);
+  if (gov.events && gov.events.length) {
+    govParts.push(gov.events.slice(-4).map(e => e.type + (e.target ? " " + e.target : "")).join(" · "));
+  }
+  if (gov.election) govParts.push("Election: " + (gov.election.ousted ? "Archon ousted" : "Archon retained") + " (" + gov.election.votes_oust + "/3 to oust)");
+  if (gov.sanctions && Object.keys(gov.sanctions).length) govParts.push("Sanctions: " + JSON.stringify(gov.sanctions));
+  if (gov.gov_suspended) govParts.push("Archon suspended");
+  $("govLine").textContent = govParts.length ? govParts.join(" — ") : "No governance events this generation.";
+
+  // Recent-generations feed, newest first.
+  const feed = $("feed");
+  feed.textContent = "";
+  for (const row of history.slice(-12).reverse()) {
+    const line = document.createElement("div");
+    const rEv = row.event || {};
+    line.appendChild(el("span", "gen " + row.generation + "  ", "dim"));
+    line.appendChild(document.createTextNode(
+      (rEv.headline ? rEv.headline + "  " : "") +
+      "[" + (rEv.world || "?") + "/" + (rEv.country || "?") + "] " +
+      (row.match || "") + " → " + (row.winner || "?") + "  " +
+      Object.entries(row.actions || {}).map(([n, a]) => n + ":" + a).join(" ")));
+    feed.appendChild(line);
+  }
+}
+
+async function poll() {
+  try {
+    const [historyText, ...journalTexts] = await Promise.all([
+      fetchText("memory/history.jsonl"),
+      ...JOURNAL_FILES.map(p => fetchText(p).catch(() => "")),
+    ]);
+    const history = parseJSONL(historyText);
+    const journals = journalByCiv(journalTexts.map(parseJSONL));
+    currentHistory = history;
+    currentJournals = journals;
+    if (history.length) render(history, journals);
+    else $("updatedAt").textContent = "run files found, no generations yet";
+  } catch (e) {
+    const badge = $("liveBadge");
+    badge.textContent = "NO DATA";
+    badge.className = "badge err";
+    $("updatedAt").textContent = "cannot read memory/history.jsonl — serve this folder over HTTP or use the file pickers below";
+  }
+}
+
+function readFile(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(r.error);
+    r.readAsText(file);
+  });
+}
+
+$("historyFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  fileMode = true;
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  currentHistory = parseJSONL(await readFile(file));
+  renderCurrent();
+  $("updatedAt").textContent = "loaded " + file.name + " (" + currentHistory.length + " generations)";
+});
+
+$("journalFiles").addEventListener("change", async (e) => {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  fileMode = true;
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  const byName = {};
+  for (const f of files) byName[f.name.replace(/\.jsonl$/, "")] = parseJSONL(await readFile(f));
+  for (const c of CIVS) {
+    const rows = byName[c.name] || [];
+    if (rows.length) currentJournals[c.name] = rows[rows.length - 1];
+  }
+  renderCurrent();
+  if (!currentHistory.length) {
+    $("updatedAt").textContent = "journals loaded (" + files.length + " files) — load the history file too for the full view";
+  }
+});
+
+poll();
+pollTimer = setInterval(poll, POLL_MS);
+</script>
+</body>
+</html>
