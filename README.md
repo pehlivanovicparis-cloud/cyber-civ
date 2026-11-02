@@ -124,6 +124,31 @@ Archon   B644F5AB7AED  Pessimist Stabilizer (Balanced)   intent=0.55 wr=0.51
 🏛️ Archon status: IN POWER
 ```
 
+## Recovery Engine
+
+A zero-PII, read-only sensing protocol for crypto and banking asset
+recovery, built into `recovery/`. It senses wallet and bank state from
+a mere signal — a transaction hash, a wallet address, a bank routing
+number — without collecting, storing, or handling account data or
+private keys.
+
+- **Zero-PII by construction:** the MT940 banking parser extracts only
+  currency, balances, and velocity; account and statement numbers are
+  discarded at ingress and never stored or returned.
+- **Pure-Python crypto:** hand-rolled secp256k1, BIP32, and BIP173
+  Bech32, standard library only. A 20-address wallet lookahead takes
+  0.23–0.26s and is verified against live on-chain balances.
+- **Read-only, idempotent ingest:** `/ingest/xpub` and `/ingest/mt940`
+  never mutate the persistence engine.
+- **Hardened:** 64 KB body cap, rate limiting, brute-force lockout,
+  15s client-side retry. **167/167 tests pass.**
+- **Live:** https://1c07b87e19009c.lhr.life
+- **Docs:** `recovery/README.md`,
+  `recovery/ARCHITECTURE-OVERVIEW.md`,
+  `recovery/CODE-REVIEW-2026-11-02.md`
+- **Submission video:**
+  `recovery/video/cyber-civ-recovery-engine-submission.mp4` (3 min 14 s)
+
 ## Project structure
 
 ```
