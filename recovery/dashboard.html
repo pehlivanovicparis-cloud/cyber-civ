@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cyber CIV Recovery — Dashboard</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0f1115; color: #e8eaf0; }
+  header { padding: 20px 24px 12px; border-bottom: 1px solid #262a33; }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: .2px; }
+  header p { margin: 6px 0 0; color: #9aa3b2; font-size: 14px; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .pill.ok { background: #123f2a; color: #4ade80; }
+  .pill.warn { background: #4a2f10; color: #fbbf24; }
+  main { padding: 20px 24px 40px; max-width: 1100px; margin: 0 auto; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 16px 0; }
+  .card { background: #171a21; border: 1px solid #262a33; border-radius: 12px; padding: 14px 16px; }
+  .card h3 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #9aa3b2; }
+  .card .big { font-size: 26px; font-weight: 700; }
+  .card .sub { color: #9aa3b2; font-size: 13px; margin-top: 4px; }
+  section { margin-top: 28px; }
+  section h2 { font-size: 16px; margin: 0 0 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #262a33; }
+  th { color: #9aa3b2; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  th.num { text-align: right; }
+  .muted { color: #9aa3b2; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; word-break: break-all; }
+  form.sense { display: flex; gap: 8px; flex-wrap: wrap; }
+  form.sense input { flex: 1; min-width: 220px; padding: 10px 12px; border-radius: 8px; border: 1px solid #333947; background: #0f1115; color: #e8eaf0; font-size: 14px; }
+  form.sense button { padding: 10px 18px; border-radius: 8px; border: none; background: #2563eb; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+  form.sense button:hover { background: #1d4ed8; }
+  #senseResult { margin-top: 12px; font-size: 14px; }
+  #senseResult .signal { padding: 8px 10px; border: 1px solid #262a33; border-radius: 8px; margin-top: 8px; background: #171a21; }
+  #senseResult .signal.warn { border-color: #4a2f10; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .chips button { padding: 6px 12px; border-radius: 999px; border: 1px solid #333947; background: #171a21; color: #c7d2fe; font-size: 13px; cursor: pointer; }
+  .chips button:hover { border-color: #2563eb; }
+  #retryBtn { margin-top: 12px; padding: 8px 16px; border-radius: 8px; border: 1px solid #333947; background: #171a21; color: #e8eaf0; font-size: 14px; cursor: pointer; display: none; }
+  #error { color: #f87171; margin-top: 12px; font-size: 14px; }
+  #updated { color: #9aa3b2; font-size: 12px; margin-top: 16px; }
+  @media (max-width: 600px) { header, main { padding-left: 14px; padding-right: 14px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Cyber CIV Recovery</h1>
+  <p>Backup &amp; recovery for banking, crypto, and fintech accounts. <span id="health" class="pill ok">checking…</span></p>
+</header>
+<main>
+  <div class="grid" id="stats"></div>
+
+  <section>
+    <h2>Accounts</h2>
+    <div id="accounts"></div>
+  </section>
+
+  <section>
+    <h2>Open incidents</h2>
+    <div id="incidents"></div>
+  </section>
+
+  <section>
+    <h2>Transfers</h2>
+    <div id="transfers"></div>
+  </section>
+
+  <section>
+    <h2>Sense a signal</h2>
+    <p class="muted">Give the monitor a mere signal — a transaction hash, a wallet address, a bank signal, or a bank reference. No account info or logins needed. Tap an example to try it:</p>
+    <div class="chips">
+      <button type="button" data-signal="bank:021000021:123456789">Bank signal</button>
+      <button type="button" data-signal="0x3Ae6AB2f00674eBAa004aAD36A51f4367C35E2E6">Wallet address</button>
+      <button type="button" data-signal="ref:WIRE-2026-1101-8842">Bank reference</button>
+    </div>
+    <form class="sense" id="senseForm" style="margin-top:10px">
+      <input id="senseInput" type="text" placeholder="0x… transaction hash, wallet address, bank:021000021:123456789, or ref:…" autocomplete="off">
+      <button type="submit">Sense</button>
+    </form>
+    <div id="senseResult"></div>
+    <div id="error"></div>
+    <button id="retryBtn" type="button">Retry loading data</button>
+  </section>
+
+  <section>
+    <h2>Ingest a statement or wallet key</h2>
+    <p class="muted">Paste a bank statement snippet (MT940) or an extended public key (xpub/ypub/zpub). The engine extracts only balances and velocity — account numbers are stripped, private keys are rejected. Nothing is stored; results show here only.</p>
+    <h3 style="margin:14px 0 6px">MT940 statement snippet</h3>
+    <form class="sense" id="mt940Form">
+      <textarea id="mt940Input" rows="5" style="flex:1;min-width:220px;padding:10px 12px;border-radius:8px;border:1px solid #333947;background:#0f1115;color:#e8eaf0;font-size:13px;font-family:monospace" placeholder=":20:REF&#10;:25:… (stripped, never stored)&#10;:60F:C230101USD1234,56&#10;:61:2301020102D500,00NTRFNONREF&#10;:62F:C230103USD934,56"></textarea>
+      <button type="submit">Parse MT940</button>
+    </form>
+    <div id="mt940Result"></div>
+    <h3 style="margin:14px 0 6px">Bitcoin extended public key</h3>
+    <form class="sense" id="xpubForm">
+      <input id="xpubInput" type="text" placeholder="xpub… / ypub… / zpub… (public only — xprv is rejected)" autocomplete="off">
+      <button type="submit">Resolve wallet</button>
+    </form>
+    <div id="xpubResult"></div>
+    <div id="error"></div>
+    <button id="retryBtn" type="button">Retry loading data</button>
+  </section>
+
+  <section>
+    <h2>Audit log</h2>
+    <div id="audit"></div>
+  </section>
+
+  <p id="updated"></p>
+</main>
+<script>
+async function fetchJSON(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error(path + " -> HTTP " + r.status);
+  return r.json();
+}
+function fmt(n) { return Number(n).toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function sleep(ms) { return new Promise(res => setTimeout(res, ms)); }
+
+// Resilient fetch: up to 3 attempts, 15s per attempt (AbortController),
+// 1s then 2s backoff between attempts. Retries only network-level
+// failures and timeouts (AbortError / TypeError) — an HTTP response,
+// even an error status like 400/401, is returned immediately and is
+// never retried. The ingest endpoints are read-only, so a retry can
+// never duplicate state.
+async function fetchWithRetry(url, options = {}, tries = 3, timeoutMs = 15000) {
+  let lastErr;
+  for (let attempt = 1; attempt <= tries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const r = await fetch(url, {...options, signal: controller.signal});
+      clearTimeout(timer);
+      return r;
+    } catch (err) {
+      clearTimeout(timer);
+      lastErr = err;
+      if (attempt < tries) await sleep(1000 * attempt);
+    }
+  }
+  throw lastErr;
+}
+
+async function refresh() {
+  const errBox = document.getElementById("error");
+  const retryBtn = document.getElementById("retryBtn");
+  // The public tunnel is flaky: retry a few times before giving up.
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const [summary, audit] = await Promise.all([fetchJSON("/summary"), fetchJSON("/audit")]);
+      errBox.textContent = "";
+      retryBtn.style.display = "none";
+      render(summary, audit);
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < 3) await sleep(2000);
+    }
+  }
+  errBox.textContent = "Could not load data: " + lastErr.message + ". The link may have dropped — tap Retry, or reload the page.";
+  retryBtn.style.display = "inline-block";
+}
+
+function render(summary, audit) {
+    const health = document.getElementById("health");
+    health.textContent = summary.audit_chain_valid ? "audit chain valid" : "audit chain INVALID";
+    health.className = "pill " + (summary.audit_chain_valid ? "ok" : "warn");
+
+    const w = summary.recovery_wallet || {};
+    document.getElementById("stats").innerHTML = `
+      <div class="card"><h3>Cycle</h3><div class="big">${summary.cycle}</div><div class="sub">recovery cycles run</div></div>
+      <div class="card"><h3>Recovery pool</h3><div class="big">${fmt(summary.pool_balance)}</div><div class="sub">frozen funds held</div></div>
+      <div class="card"><h3>Recovered</h3><div class="big">${fmt(summary.total_recovered)}</div><div class="sub">of ${fmt(summary.total_frozen)} frozen</div></div>
+      <div class="card"><h3>Recovery wallet</h3><div class="big">${fmt(w.total_deposited || 0)}</div><div class="sub">deposited / ${fmt(w.total_released || 0)} released</div></div>
+      <div class="card"><h3>Transferred</h3><div class="big">${fmt(summary.total_transferred)}</div><div class="sub">${(summary.transfers || []).length} transfers</div></div>
+      <div class="card"><h3>Audit entries</h3><div class="big">${summary.audit_entries}</div><div class="sub">${summary.audit_chain_valid ? "chain valid" : "CHAIN INVALID"}</div></div>`;
+
+    const accounts = summary.accounts || {};
+    const rows = Object.entries(accounts).map(([id, a]) => `
+      <tr><td class="mono">${esc(id)}</td><td>${esc(a.type)}</td><td>${esc(a.owner)}</td>
+      <td class="num">${fmt(a.balance)} ${esc(a.currency)}</td>
+      <td class="mono muted">${a.address ? esc(a.address) : "—"}</td></tr>`).join("");
+    document.getElementById("accounts").innerHTML = `
+      <table><thead><tr><th>Account</th><th>Type</th><th>Owner</th><th class="num">Balance</th><th>Public address</th></tr></thead>
+      <tbody>${rows}</tbody></table>`;
+
+    const open = summary.open_incidents || [];
+    document.getElementById("incidents").innerHTML = open.length === 0
+      ? `<p class="muted">No open incidents. All losses recovered.</p>`
+      : `<table><thead><tr><th>ID</th><th>Victim</th><th class="num">Stolen</th><th class="num">Frozen</th><th class="num">Recovered</th><th class="num">Remaining</th><th>Status</th></tr></thead><tbody>
+        ${open.map(i => `<tr><td>${i.id}</td><td class="mono">${esc(i.victim)}</td><td class="num">${fmt(i.stolen)}</td><td class="num">${fmt(i.frozen)}</td><td class="num">${fmt(i.recovered)}</td><td class="num">${fmt(i.remaining)}</td><td>${esc(i.status)}</td></tr>`).join("")}
+        </tbody></table>`;
+
+    const transfers = summary.transfers || [];
+    document.getElementById("transfers").innerHTML = transfers.length === 0
+      ? `<p class="muted">No transfers yet.</p>`
+      : `<table><thead><tr><th>ID</th><th>From</th><th>To</th><th class="num">Amount</th><th>Internal</th><th>Cycle</th></tr></thead><tbody>
+        ${transfers.slice().reverse().map(t => `<tr><td>${t.transfer_id}</td><td class="mono">${esc(t.from)}</td><td class="mono">${esc(t.to)}</td><td class="num">${fmt(t.amount)} ${esc(t.currency)}</td><td>${t.internal ? "yes" : "no"}</td><td>${t.cycle}</td></tr>`).join("")}
+        </tbody></table>`;
+
+    const entries = (audit.entries || []).slice(-10).reverse();
+    document.getElementById("audit").innerHTML = `
+      <p class="muted">Latest ${entries.length} of ${audit.entries.length} entries. Chain valid: ${audit.chain_valid ? "yes" : "NO"}.</p>
+      <table><thead><tr><th>Seq</th><th>Cycle</th><th>Action</th><th>Details</th></tr></thead><tbody>
+      ${entries.map(e => `<tr><td>${e.seq}</td><td>${e.cycle}</td><td>${esc(e.action)}</td><td class="mono muted">${esc(JSON.stringify(e.details))}</td></tr>`).join("")}
+      </tbody></table>`;
+
+    document.getElementById("updated").textContent = "Updated " + new Date().toLocaleTimeString() + " — auto-refreshes every 10s.";
+}
+
+document.getElementById("retryBtn").addEventListener("click", () => {
+  document.getElementById("error").textContent = "";
+  refresh();
+});
+
+document.querySelectorAll(".chips button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.getElementById("senseInput").value = btn.dataset.signal;
+    document.getElementById("senseForm").dispatchEvent(new Event("submit", {cancelable: true}));
+  });
+});
+
+document.getElementById("senseForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const signal = document.getElementById("senseInput").value.trim();
+  const out = document.getElementById("senseResult");
+  const errBox = document.getElementById("error");
+  if (!signal) return;
+  out.innerHTML = `<p class="muted">Sensing…</p>`;
+  errBox.textContent = "";
+  try {
+    const r = await fetchWithRetry("/sense", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({signal}),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+    const addrs = (data.addresses || []).map(a =>
+      `<div>${esc(a.address)} — ${a.balance_eth} ETH (${a.transaction_count} txs)</div>`).join("");
+    const sigs = (data.signals || []).map(s =>
+      `<div class="signal ${s.severity === "warning" ? "warn" : ""}"><strong>${esc(s.kind)}</strong> [${esc(s.severity)}] — ${esc(s.message)}</div>`).join("");
+    const errs = (data.errors || []).map(e => `<div class="signal warn">${esc(e)}</div>`).join("");
+    out.innerHTML = `
+      <p><strong>Type:</strong> ${esc(data.signal_type)}</p>
+      ${data.resolved && Object.keys(data.resolved).length ? `<p class="mono muted">${esc(JSON.stringify(data.resolved))}</p>` : ""}
+      ${addrs}${sigs}${errs || (sigs ? "" : `<p class="muted">No signals detected.</p>`)}`;
+  } catch (err) {
+    errBox.textContent = "Sensing failed: " + err.message;
+    out.innerHTML = "";
+  }
+});
+
+document.getElementById("mt940Form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const text = document.getElementById("mt940Input").value.trim();
+  const out = document.getElementById("mt940Result");
+  const errBox = document.getElementById("error");
+  if (!text) return;
+  out.innerHTML = `<p class="muted">Parsing…</p>`;
+  errBox.textContent = "";
+  try {
+    const r = await fetchWithRetry("/ingest/mt940", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({text}),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+    const rows = (data.velocity_profile || []).map(v =>
+      `<div>${esc(v.entry_date)} — ${v.is_credit ? "+" : "-"}${fmt(v.amount)} (${esc(v.transaction_type)})</div>`).join("");
+    out.innerHTML = `
+      <p><strong>${esc(data.currency)}</strong> — opening ${fmt(data.opening_balance)}, closing ${fmt(data.closing_balance)}</p>
+      <p class="muted">Period from ${esc(data.statement_period_start)} · ${data.transaction_count} transactions</p>
+      ${rows}`;
+  } catch (err) {
+    errBox.textContent = "MT940 parse failed: " + err.message;
+    out.innerHTML = "";
+  }
+});
+
+document.getElementById("xpubForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const xpub = document.getElementById("xpubInput").value.trim();
+  const out = document.getElementById("xpubResult");
+  const errBox = document.getElementById("error");
+  if (!xpub) return;
+  out.innerHTML = `<p class="muted">Deriving addresses and resolving balances…</p>`;
+  errBox.textContent = "";
+  try {
+    const r = await fetchWithRetry("/ingest/xpub", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({xpub}),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+    const rows = (data.addresses || []).filter(a => a.tx_count).map(a =>
+      `<div>${esc(a.address)} — ${(a.balance_sats ?? 0).toLocaleString()} sats (${a.tx_count} txs)</div>`).join("");
+    out.innerHTML = `
+      <p><strong>${esc(data.derivation_type)}</strong> — total ${(data.total_balance_sats ?? 0).toLocaleString()} sats across ${data.addresses_with_activity} active address(es) (${data.total_tx_count} txs)</p>
+      ${rows || `<p class="muted">No activity on the first ${data.gap_limit} addresses.</p>`}
+      ${(data.errors || []).map(e => `<div class="signal warn">${esc(e)}</div>`).join("")}`;
+  } catch (err) {
+    errBox.textContent = "xpub resolve failed: " + err.message;
+    out.innerHTML = "";
+  }
+});
+
+refresh();
+setInterval(refresh, 10000);
+</script>
+</body>
+</html>

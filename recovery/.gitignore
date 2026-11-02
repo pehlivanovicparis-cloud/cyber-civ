@@ -1,0 +1,5 @@
+.auth
+state.json
+state.json.tmp.*
+logs/
+__pycache__/
