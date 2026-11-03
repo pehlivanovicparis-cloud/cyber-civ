@@ -11,8 +11,9 @@ Copyright (c) 2026 Paris Pehlivanovic. All rights reserved. See [LICENSE](LICENS
 
 ## What is this?
 
-Three digital civilizations — Ares (pessimist), Pax (optimist), Vex (pragmatist) —
-plus Archon, a sovereign regulator that governs them. Every generation they perceive
+Five digital civilizations — Ares (pessimist), Pax (optimist), Vex (pragmatist) —
+plus Archon, a sovereign regulator that governs them, and Aegis, a custodian
+that restores stolen funds. Every generation they perceive
 risk events, update their intent, choose actions (EXPAND / STABILIZE / EXPLORE),
 ally with the like-minded, and face off in probabilistic competition.
 
@@ -35,6 +36,7 @@ is appended to an immutable history log.
 | Pax | Optimist, slow adapter | −0.10 | 0.04 |
 | Vex | Pragmatist, medium adapter | 0.00 | 0.06 |
 | Archon | Regulator: sees risk everywhere | +0.05 | 0.05 |
+| Aegis | Custodian, recovery agent | −0.05 | 0.05 |
 
 ## How a generation works
 
@@ -142,12 +144,11 @@ private keys.
   never mutate the persistence engine.
 - **Hardened:** 64 KB body cap, rate limiting, brute-force lockout,
   15s client-side retry. **167/167 tests pass.**
-- **Live:** https://1c07b87e19009c.lhr.life
 - **Docs:** `recovery/README.md`,
   `recovery/ARCHITECTURE-OVERVIEW.md`,
   `recovery/CODE-REVIEW-2026-11-02.md`
-- **Submission video:**
-  `recovery/video/cyber-civ-recovery-engine-submission.mp4` (3 min 14 s)
+- **Submission video:** https://youtu.be/hT07lmKNC-Y (3 min 14 s)
+  (local file: `recovery/video/cyber-civ-recovery-engine-submission.mp4`)
 
 ## Project structure
 
