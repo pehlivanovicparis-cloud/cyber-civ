@@ -1,9 +1,9 @@
 # CYBER CIV
 
-**Persistent Evolving Cyber Civilization** — four AI civilizations with distinct
+**Persistent Evolving Cyber Civilization** — five AI civilizations — Ares, Pax, Vex, Archon, and Aegis, the recovery agent — with distinct
 personalities perceive world events, learn, form alliances, and compete across
 generations. One of them is a government. It sanctions, vetoes, and can be voted
-out of power.
+out of power. One of them is a custodian — it restores stolen funds to their victims.
 
 Copyright (c) 2026 Paris Pehlivanovic. All rights reserved. See [LICENSE](LICENSE).
 

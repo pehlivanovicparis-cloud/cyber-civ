@@ -18,7 +18,7 @@
   then open http://localhost:8000/spectator.html while the sim runs.
   Opened directly as file:// the fetches are blocked, so use the
   "Load run files" pickers at the bottom instead (history.jsonl, then
-  the four memory/civ_memory/*.jsonl journals) — that loads a finished
+  the five memory/civ_memory/*.jsonl journals) — that loads a finished
   run as a replay.
 
   HONESTY RULE: the badge says LIVE only while new generations keep
@@ -90,7 +90,7 @@
 <body>
 <header>
   <h1>CYBER <span class="civ">CIV</span> — LIVE SPECTATOR</h1>
-  <p>Four civilizations govern themselves, one generation at a time. Read-only: this page watches the run, it never touches it.</p>
+  <p>Five civilizations govern themselves, one generation at a time. Read-only: this page watches the run, it never touches it.</p>
 </header>
 <div class="wrap">
 
@@ -137,7 +137,7 @@
     <h3>Load run files (only needed when opened as file://)</h3>
     <label>History log — memory/history.jsonl</label>
     <input type="file" id="historyFile" accept=".jsonl">
-    <label>Memory journals — memory/civ_memory/*.jsonl (pick all four)</label>
+    <label>Memory journals — memory/civ_memory/*.jsonl (pick all five)</label>
     <input type="file" id="journalFiles" accept=".jsonl" multiple>
     <p>Loaded files are rendered as a replay and polling stops.</p>
   </div>
