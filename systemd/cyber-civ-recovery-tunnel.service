@@ -1,0 +1,16 @@
+[Unit]
+Description=Cyber CIV Recovery public tunnel (localhost.run)
+After=network.target cyber-civ-recovery.service
+Requires=cyber-civ-recovery.service
+
+[Service]
+Type=simple
+Environment=HOME=/root
+ExecStart=/usr/bin/ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -R 80:localhost:8000 nokey@ssh.localhost.run
+StandardOutput=append:/home/hatch/workspace/cyber_civ/recovery/logs/tunnel.log
+StandardError=append:/home/hatch/workspace/cyber_civ/recovery/logs/tunnel.log
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

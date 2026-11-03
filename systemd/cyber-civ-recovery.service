@@ -1,0 +1,15 @@
+[Unit]
+Description=Cyber CIV Recovery API (banking/crypto/fintech backup recovery)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/hatch/workspace/cyber_civ
+Environment=HOME=/home/hatch
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -m recovery.cli serve --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

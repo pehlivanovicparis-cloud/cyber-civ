@@ -6,7 +6,7 @@
 set -u
 SRC="$(cd "$(dirname "$0")" && pwd)"
 DST=/etc/systemd/system
-UNITS="ollama-serve.service civ-harvest.service civ-harvest8b.service harvest-toggle.service harvest-toggle.timer"
+UNITS="ollama-serve.service civ-harvest.service civ-harvest8b.service harvest-toggle.service harvest-toggle.timer cyber-civ-recovery.service cyber-civ-recovery-autocycle.service cyber-civ-recovery-tunnel.service"
 
 fail() { echo "RESTORE ASSERTION FAILED: $1" >&2; exit 1; }
 
@@ -18,7 +18,7 @@ systemctl daemon-reload || fail "daemon-reload failed"
 # enable --now: wire into boot targets AND arm immediately (enable alone
 # does not start anything until the next boot — the 2026-10-11 restore
 # missed exactly this on the timer and rotations silently never fired).
-systemctl enable --now ollama-serve.service civ-harvest.service harvest-toggle.timer || fail "enable --now failed"
+systemctl enable --now ollama-serve.service civ-harvest.service harvest-toggle.timer cyber-civ-recovery.service cyber-civ-recovery-autocycle.service cyber-civ-recovery-tunnel.service || fail "enable --now failed"
 
 # --- Post-restore assertions: fail loudly, never silently ---
 [ "$(systemctl is-active ollama-serve)" = "active" ] || fail "ollama-serve not active"
@@ -42,4 +42,12 @@ AHEAD=$((NEXT_EPOCH - NOW_EPOCH))
 
 curl -s -m 3 http://localhost:11434/api/tags >/dev/null || fail "ollama API not answering"
 
-echo "restore OK: ollama up, exactly one harvest active (3b=$H1 8b=$H2), timer armed, next flip in ${AHEAD}s"
+# --- Cyber CIV Recovery subsystem (added 2026-11-01; Paris: "wire it as a real service") ---
+[ "$(systemctl is-active cyber-civ-recovery)" = "active" ] || fail "cyber-civ-recovery not active"
+[ "$(systemctl is-active cyber-civ-recovery-autocycle)" = "active" ] || fail "cyber-civ-recovery-autocycle not active"
+[ "$(systemctl is-active cyber-civ-recovery-tunnel)" = "active" ] || fail "cyber-civ-recovery-tunnel not active"
+# Recovery API health: 200 (no auth) or 401 (auth on) both mean it is answering.
+RCODE=$(curl -s -m 3 -o /dev/null -w "%{http_code}" http://localhost:8000/health)
+[ "$RCODE" = "200" ] || [ "$RCODE" = "401" ] || fail "recovery API not answering (HTTP $RCODE)"
+
+echo "restore OK: ollama up, exactly one harvest active (3b=$H1 8b=$H2), timer armed, next flip in ${AHEAD}s, recovery API/autocycle/tunnel up"

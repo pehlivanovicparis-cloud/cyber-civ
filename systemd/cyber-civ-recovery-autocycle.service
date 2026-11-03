@@ -1,0 +1,16 @@
+[Unit]
+Description=Cyber CIV Recovery auto-cycle (keeps the recovery agent working)
+After=network.target cyber-civ-recovery.service
+Requires=cyber-civ-recovery.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/hatch/workspace/cyber_civ
+Environment=HOME=/home/hatch
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 recovery/auto_cycle.py --interval 60
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
