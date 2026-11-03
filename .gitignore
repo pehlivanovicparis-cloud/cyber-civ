@@ -28,3 +28,12 @@ venv/
 training/output/
 *.egg-info/
 .DS_Store
+
+# Submission video intermediates + showcase run outputs — local only.
+recovery/video/audio/
+recovery/video/slides/
+recovery/video/seg*.mp4
+recovery/video/concat.txt
+showcase-2026-10-31/
+showcase-2026-11-01/
+showcase-2026-11-01-run2/
