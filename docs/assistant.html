@@ -129,10 +129,11 @@ document.getElementById('base').value = store.b;
 document.getElementById('model').value = store.m;
 document.getElementById('key').value = store.k;
 document.getElementById('save').onclick = () => {
-  store.set('civ_key', document.getElementById('key').value.trim());
+  const k = document.getElementById('key').value.trim();
+  store.set('civ_key', k);
   store.set('civ_base', document.getElementById('base').value.trim()||'https://api.openai.com/v1');
   store.set('civ_model', document.getElementById('model').value.trim()||'gpt-4o-mini');
-  botSay('Settings saved. Ask me anything.');
+  botSay(k ? 'Settings saved. Ask me anything.' : 'Settings saved, but no API key yet — add one above before asking, or answers will not work.');
 };
 
 function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
@@ -154,9 +155,9 @@ document.querySelectorAll('#chips button').forEach(b =>
 async function send(){
   const q = input.value.trim();
   if(!q || sendBtn.disabled) return;
-  if(!store.k){ botSay('Add your API key above first (any OpenAI-compatible key works).'); return; }
   input.value = '';
   addMsg('user', esc(q));
+  if(!store.k){ botSay('Add your API key above first (any OpenAI-compatible key works).'); return; }
   sendBtn.disabled = true;
   const typing = addMsg('bot', '<span class="typing">thinking…</span>');
   try {
