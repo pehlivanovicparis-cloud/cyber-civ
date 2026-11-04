@@ -11,8 +11,10 @@
   and renders each generation as it lands. It never writes, never
   restarts, never touches the sim.
 
-  HOW TO RUN (local only — memory/ is gitignored, so this page cannot
-  work from GitHub Pages; it reads run files off this machine):
+  HOW TO RUN: on GitHub Pages this page loads the published snapshot
+  (history.jsonl plus the five memory/civ_memory/*.jsonl journals in
+  docs/) as a replay. Served locally it polls the live run files off
+  this machine:
       cd <repo root>
       python3 -m http.server 8000
   then open http://localhost:8000/spectator.html while the sim runs.
@@ -145,7 +147,8 @@
   <footer>
     Served locally? Run <code>python3 -m http.server 8000</code> from the repo root and open
     <code>http://localhost:8000/spectator.html</code> while the sim runs — the page polls
-    <code>memory/history.jsonl</code> and <code>memory/civ_memory/*.jsonl</code> every 3 seconds.
+    <code>history.jsonl</code> and <code>memory/civ_memory/*.jsonl</code> every 3 seconds.
+    On GitHub Pages it loads the published snapshot in docs/ as a replay.
     Headlines appear only for generations recorded after the history log started carrying
     them (see cyber_civ.py); older rows show the world / country / risk instead.
   </footer>
@@ -159,6 +162,7 @@ const CIVS = [
   {name: "Pax",    color: "#5da9ff"},
   {name: "Vex",    color: "#9aa3b2"},
   {name: "Archon", color: "#ffd166"},
+  {name: "Aegis",  color: "#3ddc84"},
 ];
 const JOURNAL_FILES = CIVS.map(c => "memory/civ_memory/" + c.name + ".jsonl");
 const POLL_MS = 3000;
@@ -358,7 +362,7 @@ function render(history, journals) {
 async function poll() {
   try {
     const [historyText, ...journalTexts] = await Promise.all([
-      fetchText("memory/history.jsonl"),
+      fetchText("history.jsonl"),
       ...JOURNAL_FILES.map(p => fetchText(p).catch(() => "")),
     ]);
     const history = parseJSONL(historyText);
@@ -371,7 +375,7 @@ async function poll() {
     const badge = $("liveBadge");
     badge.textContent = "NO DATA";
     badge.className = "badge err";
-    $("updatedAt").textContent = "cannot read memory/history.jsonl — serve this folder over HTTP or use the file pickers below";
+    $("updatedAt").textContent = "cannot read history.jsonl — serve this folder over HTTP or use the file pickers below";
   }
 }
 

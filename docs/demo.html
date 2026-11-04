@@ -125,7 +125,7 @@
   </div>
   </div><!-- /feed tab -->
 
-  <div class="tab" data-tab="code">
+  <div class="tab" data-tab="code" id="code">
   <div class="panel">
     <h3>cyber_civ.py <span id="codeMeta" style="color:var(--dim);font-weight:400;text-transform:none;letter-spacing:0"></span></h3>
     <pre id="codeView"><code id="codeText"></code></pre>
@@ -1126,6 +1126,12 @@ function showTab(name){
   if(name==="results") renderJson();
 }
 document.querySelectorAll(".tabbtn").forEach(function(b){ b.onclick=function(){showTab(b.dataset.tab);}; });
+// Deep-link: demo.html#code (or #results / #feed) opens that tab on load,
+// so the "View the code" link from the home page lands on the Code tab.
+(function(){
+  var h=(location.hash||"").replace(/^#/,"");
+  if(h==="code"||h==="results"||h==="feed"){ showTab(h); }
+})();
 /* ============ controls ============ */
 function tick(){
   const per=parseInt($("speed").value,10);
